@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0b1733" />
+  <title>Penalty Kings</title>
+  <link rel="stylesheet" href="styles.css?v=1.1.2" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Penalty Kings" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="Win an international penalty-shootout cup — pick your nation and win every match from the spot, group stage to the final." />
+</head>
+<body>
+  <div id="app">
+    <div id="stage">
+      <canvas id="pitch" width="960" height="600"></canvas>
+      <div id="screens"></div>
+    </div>
+  </div>
+
+  <script src="js/teams.js?v=1.1.2"></script>
+  <script src="js/tournament.js?v=1.1.2"></script>
+  <script src="js/shootout.js?v=1.1.2"></script>
+  <script src="js/store.js?v=1.1.2"></script>
+  <script src="js/game.js?v=1.1.2"></script>
+  <script>
+    // PWA offline support (web only; harmless inside the native app)
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+    }
+  </script>
+</body>
+</html>
