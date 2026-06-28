@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# iOS build output (regenerable via xcodebuild)
+ios/build/
+ios/build-device/
+ios/App/build/
+ios/App/Pods/
+ios/App/App/public/        # synced from www/ by `cap sync`
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Capacitor
+.capacitor/
+
+# macOS
+.DS_Store
+
+# Logs / temp
+*.log
+.tmp/
