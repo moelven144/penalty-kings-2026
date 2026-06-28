@@ -1,6 +1,6 @@
 {
   "name": "penalty-world-cup-2026",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "private": true,
   "description": "Penalty Kings 2026 — penalty-shootout tournament game (web + iOS via Capacitor)",
   "scripts": {

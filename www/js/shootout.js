@@ -326,7 +326,8 @@ function startShootout(canvas, opts, onFinish) {
     if (decided()) {
       finished = true; phase = "over"; phaseT = 0;
       const playerWon = pScore > cScore;
-      setTimeout(() => {
+      endTimer = setTimeout(() => {
+        endTimer = 0;
         stop();
         onFinish({
           playerScore: pScore, cpuScore: cScore, playerWon,
@@ -789,7 +790,7 @@ function startShootout(canvas, opts, onFinish) {
   // ===================================================================
   //  LOOP
   // ===================================================================
-  let raf = 0, last = 0, running = true;
+  let raf = 0, last = 0, running = true, endTimer = 0;
   function frame(ts) {
     if (!running) return;
     if (!last) last = ts;
@@ -799,6 +800,7 @@ function startShootout(canvas, opts, onFinish) {
   }
   function stop() {
     running = false; cancelAnimationFrame(raf);
+    if (endTimer) { clearTimeout(endTimer); endTimer = 0; }
     canvas.removeEventListener("mousedown", onPointer);
     canvas.removeEventListener("touchstart", onPointer);
     window.removeEventListener("keydown", onKey);

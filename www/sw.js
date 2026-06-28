@@ -1,15 +1,15 @@
 /* Penalty Kings — service worker (offline support) */
-const CACHE = "pk-v6";
+const CACHE = "pk-v7";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=1.1.1",
+  "./styles.css?v=1.1.2",
   "./manifest.webmanifest",
-  "./js/teams.js?v=1.1.1",
-  "./js/tournament.js?v=1.1.1",
-  "./js/shootout.js?v=1.1.1",
-  "./js/store.js?v=1.1.1",
-  "./js/game.js?v=1.1.1",
+  "./js/teams.js?v=1.1.2",
+  "./js/tournament.js?v=1.1.2",
+  "./js/shootout.js?v=1.1.2",
+  "./js/store.js?v=1.1.2",
+  "./js/game.js?v=1.1.2",
   "./favicon.png",
   "./apple-touch-icon.png",
   "./icons/icon-192.png",
