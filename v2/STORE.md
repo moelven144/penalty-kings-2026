@@ -47,14 +47,9 @@ CHALLENGE YOUR FRIENDS
 • Rematch. Repeat. Settle it.
 
 PLAY FOR YOUR NATION
-• 48 national teams
-• The Nation League: every goal you score counts for your country's weekly ranking
+• 48 national teams, picked in one tap
 • A new Daily Challenge every day, the same match for everyone in the world
-
-ROAD TO GLORY
-• 300 levels across five regions, with three clear stars to earn in each
-• Target practice, bending shots, keeper trials and sudden death
-• Unlock balls, kits, gloves, celebrations and stadiums by playing
+• Keep your streak alive, level up and earn coins with every goal and save
 
 Plays offline. Made for one thumb.
 
@@ -67,20 +62,24 @@ Penalty Kings has been rebuilt from scratch.
 • Swipe to shoot with real curve, and swipe to dive in goal
 • Challenge friends with a link: they face your exact penalties
 • Share replays of your best goals and saves
-• Daily Challenge with streaks, and the Nation League
-• Road to Glory: 300 levels to master
+• Daily Challenge with streaks, levels and style bonuses
 • Still 100% free: no ads, nothing to buy
 
-## Screenshots (6.9" 1320×2868 and iPad 13"): one big caption each
+## Screenshots (ready: `screenshots/v2/`)
 
-| # | Shows | Caption |
+Rendered from the real game. iPhone 6.9" (1320×2868) and iPad 13" (2048×2732), upload in this order:
+
+| # | File | Caption |
 | --- | --- | --- |
-| 1 | A curling shot heading for the top corner, ball trail visible | SWIPE. BEND. SCORE. |
-| 2 | Full-stretch fingertip save | THEN DIVE TO SAVE IT |
-| 3 | Result screen: "You win 5–4" with Challenge a friend button | SEND IT TO YOUR MATES |
-| 4 | Phone message bubble with the challenge link and a clip thumbnail | 5 KICKS. 1 LINK. NO EXCUSES. |
-| 5 | Nation League ranking with flags | PLAY FOR YOUR COUNTRY |
-| 6 | Road to Glory map with stars | 300 LEVELS. NOTHING TO BUY. |
+| 1 | `iphone69-01-flight.png` | SWIPE. BEND. SCORE. |
+| 2 | `iphone69-02-save.png` | THEN DIVE TO SAVE IT |
+| 3 | `iphone69-03-end.png` | SEND IT TO YOUR MATES |
+| 4 | `iphone69-04-party.png` | 5 KICKS. 1 LINK. NO EXCUSES. |
+| 5 | `iphone69-05-title.png` | 100% FREE. NO ADS. NOTHING TO BUY. |
+
+The `ipad13-*` files go in the iPad 13" slot in the same order.
+
+Later updates add Nation League and Road to Glory screenshots once those screens exist. Don't mention them in the listing before then (App Review guideline 2.3: the listing must match the app).
 
 ## App Preview video (20–30 s, recorded from the game)
 

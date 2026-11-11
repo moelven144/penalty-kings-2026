@@ -1,9 +1,7 @@
-// Penalty Kings v2 — playable prototype.
-// Real physics, swipe controls, fair keeper and challenge links, drawn with
-// PLACEHOLDER 3D. The art pass (stadium, players, crowd, lighting, replays)
-// replaces everything in the "scene" section without touching game logic.
+// Penalty Kings v2 — game flow, input and HUD.
+// All drawing lives in scene.js (the floodlit stadium) and all sound in
+// audio.js; this file only runs the shootout and tells them what happened.
 
-import * as THREE from 'three';
 import {
   SPOT_DISTANCE, GOAL_HALF_WIDTH, GOAL_HEIGHT, POST_RADIUS, BALL_RADIUS, NET_DEPTH,
   initialState, step, predictCrossing,
@@ -14,162 +12,23 @@ import { newShootout, record, winner, nextTeam, score, isSuddenDeath } from './r
 import { encodeChallenge, readChallengeFromLocation, quantise } from './challenge.js';
 import { TEAMS, teamIndex, cpuStats } from './teams.js';
 import { makeRng } from './rng.js';
-import { loadProfile, saveProfile, recordKick, recordShootout, styleOf, levelFromXp } from './profile.js';
+import { loadProfile, saveProfile, recordKick, recordShootout, recordDaily, styleOf, levelFromXp, dayKey } from './profile.js';
+import { dailyFixture } from './modes.js';
 import { ClipRecorder, momentScore, shareClip } from './clip.js';
+import { createStage, W } from './scene.js';
+import { unlock as unlockAudio, sfx, setMuted } from './audio.js';
 
 const PLAY_URL = 'https://moelven144.github.io/penalty-kings-2026/v2/';
 const $ = (id) => document.getElementById(id);
 
-// ---------------------------------------------------------------- scene
-// Physics x is "right as the shooter sees it". The camera looks down +z,
-// where three.js puts screen-right at -x, so we mirror x when drawing.
-const W = (x) => -x;
-
+// ---------------------------------------------------------------- stage
 const canvas = $('stage');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-const scene = new THREE.Scene();
-scene.background = new THREE.Color('#0a1830');
-scene.fog = new THREE.Fog('#0a1830', 30, 70);
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
-const CAM_POS = new THREE.Vector3(0, 1.7, -3.4);
-const CAM_LOOK = new THREE.Vector3(0, 1.3, SPOT_DISTANCE);
-
-scene.add(new THREE.HemisphereLight('#cfe3ff', '#1b3a1b', 0.9));
-const sun = new THREE.DirectionalLight('#ffffff', 1.4);
-sun.position.set(-6, 14, -4);
-sun.castShadow = true;
-sun.shadow.mapSize.set(1024, 1024);
-Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 });
-scene.add(sun);
-
-function stripeTexture() {
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 512;
-  const g = c.getContext('2d');
-  for (let i = 0; i < 8; i++) {
-    g.fillStyle = i % 2 ? '#2f8a3a' : '#349a41';
-    g.fillRect(0, i * 64, 64, 64);
-  }
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(1, 4);
-  return t;
-}
-const pitch = new THREE.Mesh(new THREE.PlaneGeometry(60, 80), new THREE.MeshLambertMaterial({ map: stripeTexture() }));
-pitch.rotation.x = -Math.PI / 2;
-pitch.position.z = 10;
-pitch.receiveShadow = true;
-scene.add(pitch);
-
-const lineMat = new THREE.LineBasicMaterial({ color: '#ffffff' });
-function groundLine(points) {
-  const g = new THREE.BufferGeometry().setFromPoints(points.map(([x, z]) => new THREE.Vector3(W(x), 0.01, z)));
-  scene.add(new THREE.Line(g, lineMat));
-}
-groundLine([[-20.16, SPOT_DISTANCE], [20.16, SPOT_DISTANCE]]); // goal line
-groundLine([[-20.16, SPOT_DISTANCE], [-20.16, SPOT_DISTANCE - 16.5], [20.16, SPOT_DISTANCE - 16.5], [20.16, SPOT_DISTANCE]]);
-groundLine([[-9.16, SPOT_DISTANCE], [-9.16, SPOT_DISTANCE - 5.5], [9.16, SPOT_DISTANCE - 5.5], [9.16, SPOT_DISTANCE]]);
-const spot = new THREE.Mesh(new THREE.CircleGeometry(0.12, 20), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
-spot.rotation.x = -Math.PI / 2;
-spot.position.y = 0.012;
-scene.add(spot);
-
-const white = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.35 });
-function post(x) {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(POST_RADIUS, POST_RADIUS, GOAL_HEIGHT, 16), white);
-  m.position.set(W(x), GOAL_HEIGHT / 2, SPOT_DISTANCE);
-  m.castShadow = true;
-  scene.add(m);
-}
-post(-GOAL_HALF_WIDTH);
-post(GOAL_HALF_WIDTH);
-const bar = new THREE.Mesh(new THREE.CylinderGeometry(POST_RADIUS, POST_RADIUS, GOAL_HALF_WIDTH * 2 + POST_RADIUS * 2, 16), white);
-bar.rotation.z = Math.PI / 2;
-bar.position.set(0, GOAL_HEIGHT, SPOT_DISTANCE);
-bar.castShadow = true;
-scene.add(bar);
-
-// net: a grid of lines over back, sides and roof
-(function net() {
-  const pts = [];
-  const zb = SPOT_DISTANCE + NET_DEPTH;
-  const step = 0.25;
-  for (let x = -GOAL_HALF_WIDTH; x <= GOAL_HALF_WIDTH + 1e-6; x += step) {
-    pts.push(W(x), 0, zb, W(x), GOAL_HEIGHT * 0.8, zb); // back verticals
-    pts.push(W(x), GOAL_HEIGHT, SPOT_DISTANCE, W(x), GOAL_HEIGHT * 0.8, zb); // roof
-  }
-  for (let y = 0; y <= GOAL_HEIGHT * 0.8 + 1e-6; y += step) pts.push(W(-GOAL_HALF_WIDTH), y, zb, W(GOAL_HALF_WIDTH), y, zb);
-  for (const sx of [-GOAL_HALF_WIDTH, GOAL_HALF_WIDTH]) {
-    for (let z = SPOT_DISTANCE; z <= zb + 1e-6; z += step) {
-      const yTop = GOAL_HEIGHT - ((z - SPOT_DISTANCE) / NET_DEPTH) * GOAL_HEIGHT * 0.2;
-      pts.push(W(sx), 0, z, W(sx), yTop, z);
-    }
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#dfe7f2', transparent: true, opacity: 0.45 })));
-})();
-
-function ballTexture() {
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 128;
-  const g = c.getContext('2d');
-  g.fillStyle = '#ffffff';
-  g.fillRect(0, 0, 256, 128);
-  g.fillStyle = '#111827';
-  for (let i = 0; i < 12; i++) {
-    g.beginPath();
-    g.arc((i * 53) % 256, 20 + ((i * 37) % 90), 12, 0, Math.PI * 2);
-    g.fill();
-  }
-  return new THREE.CanvasTexture(c);
-}
-const ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 32, 20), new THREE.MeshStandardMaterial({ map: ballTexture(), roughness: 0.5 }));
-ball.castShadow = true;
-scene.add(ball);
-
-// placeholder people: capsule body + head, team colours
-function person(kit) {
-  const g = new THREE.Group();
-  const shirt = new THREE.MeshStandardMaterial({ color: kit, roughness: 0.7 });
-  const skin = new THREE.MeshStandardMaterial({ color: '#c99a78', roughness: 0.8 });
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.75, 6, 12), shirt);
-  body.position.y = 1.05;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), skin);
-  head.position.y = 1.72;
-  const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.55, 4, 8), shirt);
-  const armR = armL.clone();
-  armL.position.set(-0.32, 1.25, 0);
-  armR.position.set(0.32, 1.25, 0);
-  const legs = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.55, 4, 8), new THREE.MeshStandardMaterial({ color: '#111827' }));
-  legs.position.y = 0.4;
-  for (const m of [body, head, armL, armR, legs]) { m.castShadow = true; g.add(m); }
-  g.userData = { shirt, armL, armR };
-  scene.add(g);
-  return g;
-}
-const keeper = person('#f59e0b');
-const shooter = person('#3b82f6');
-
-function resize() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
-  // keep the whole goal (plus a margin) in view in portrait and landscape
-  const halfW = GOAL_HALF_WIDTH + 1.4;
-  const dist = SPOT_DISTANCE - CAM_POS.z;
-  const vfov = 2 * Math.atan(Math.tan(Math.atan(halfW / dist)) / camera.aspect);
-  camera.fov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(vfov), 34, 78);
-  camera.updateProjectionMatrix();
-}
-window.addEventListener('resize', resize);
-resize();
+const stage = createStage(canvas);
+const { ball, keeper, shooter } = stage;
+window.addEventListener('resize', () => stage.resize());
 
 // ---------------------------------------------------------------- game state
-const rng = makeRng((Date.now() ^ 0x9e3779b9) >>> 0);
+let rng = makeRng((Date.now() ^ 0x9e3779b9) >>> 0);
 const challenge = readChallengeFromLocation(location.hash);
 const storage = (() => { try { return window.localStorage; } catch { return { getItem: () => null, setItem: () => {} }; } })();
 const profile = loadProfile(storage);
@@ -203,7 +62,8 @@ const game = {
   shooterIsMe: true,
 };
 
-function start() {
+function start(mode = challenge ? 'challenge' : 'quick') {
+  game.mode = mode;
   game.shootout = newShootout();
   game.recorded = false;
   clips.reset();
@@ -211,6 +71,14 @@ function start() {
   if (challenge) {
     game.them = TEAMS[challenge.nation] || TEAMS[0];
     game.playerTeam = 1; // the challenger kicked first
+  } else if (mode === 'daily') {
+    // same opponent and same random rolls for everyone today
+    const fx = dailyFixture(dayKey());
+    game.day = fx.day;
+    rng = makeRng(fx.seed);
+    game.them = TEAMS[teamIndex(fx.opponent)];
+    if (game.them.code === game.me.code) game.them = TEAMS[(teamIndex(fx.opponent) + 1) % TEAMS.length];
+    game.playerTeam = 0;
   } else {
     do game.them = rng.pick(TEAMS); while (game.them.code === game.me.code);
     game.playerTeam = 0;
@@ -223,7 +91,7 @@ function start() {
 function setTeams() {
   const order = game.playerTeam === 0 ? [game.me, game.them] : [game.them, game.me];
   order.forEach((t, i) => ($(`team${i}`).querySelector('.name').textContent = `${t.flag} ${t.code}`));
-  keeper.userData.shirt.color.set('#f59e0b');
+  stage.paintCrowd(game.playerTeam === 0 ? game.me : game.them, game.playerTeam === 0 ? game.them : game.me);
 }
 
 function updateScoreboard() {
@@ -241,21 +109,20 @@ function resetPositions() {
   game.sim = null;
   ball.position.set(0, BALL_RADIUS, 0);
   ball.rotation.set(0, 0, 0);
-  keeper.position.set(W(KEEPER_START.x), 0, SPOT_DISTANCE - 0.05);
-  keeper.rotation.set(0, Math.PI, 0);
-  shooter.position.set(W(-0.6), 0, -1.6);
-  shooter.rotation.set(0, 0, 0);
+  stage.clearTrail();
+  keeper.root.position.set(W(KEEPER_START.x), 0, SPOT_DISTANCE - 0.05);
+  keeper.root.rotation.set(0, Math.PI, 0); // faces the shooter
+  shooter.root.position.set(W(-1.4), 0, -2.6);
+  shooter.root.rotation.set(0, 0.5, 0);
+  game.timeScale = 1;
+  game.slowmo = false;
 }
 
-// Shooting: low, first person behind the ball.
-// Keeping: a raised broadcast angle behind the shooter, so in portrait you
-// see the whole goal, your keeper and the run-up at once.
-const KEEP_CAM_POS = new THREE.Vector3(0, 3.4, -5.2);
-const KEEP_CAM_LOOK = new THREE.Vector3(0, 0.9, SPOT_DISTANCE);
+// Shooting: low, first person behind the ball. Keeping: raised broadcast
+// angle behind the shooter so the whole goal fits in portrait.
 function setCamera(shooting) {
-  camera.position.copy(shooting ? CAM_POS : KEEP_CAM_POS);
-  camera.lookAt(shooting ? CAM_LOOK : KEEP_CAM_LOOK);
-  shooter.visible = !shooting; // you are the shooter: no body in front of the camera
+  stage.setView(shooting ? 'shoot' : 'keep');
+  shooter.root.visible = !shooting; // you are the shooter: no body in front of the camera
 }
 
 function nextKick() {
@@ -268,8 +135,12 @@ function nextKick() {
   game.shooterIsMe = team === game.playerTeam;
   const shootingNation = game.shooterIsMe ? game.me : game.them;
   const keepingNation = game.shooterIsMe ? game.them : game.me;
-  shooter.userData.shirt.color.set(shootingNation.c1);
-  keeper.userData.shirt.color.set(keepingNation.c2 === '#ffffff' ? '#f59e0b' : keepingNation.c2);
+  shooter.setKit(shootingNation.c1, shootingNation.c2, shootingNation.c1);
+  // keepers wear a contrasting kit: their second colour, or bright orange
+  const KEEPER_KITS = ['#f97316', '#a3e635', '#22d3ee', '#f472b6', '#facc15'];
+  const kc = KEEPER_KITS[teamIndex(keepingNation.code) % KEEPER_KITS.length];
+  keeper.setKit(kc, '#111827', kc);
+  sfx.murmur();
   game.plan = { start: 99, x: 0, y: 1 };
   setCamera(game.shooterIsMe);
   if (game.shooterIsMe) {
@@ -293,11 +164,13 @@ function nextKick() {
 function strike() {
   game.crossing = predictCrossing(game.kick);
   game.sim = initialState(game.kick);
+  sfx.kick(game.kick.power);
+  sfx.hush();
   game.outcome = null;
   game.phase = 'flight';
   if (game.shooterIsMe) {
     const tell = runUpTell(game.kick.aimX, 0.45, rng);
-    game.plan = cpuKeeperPlan(game.crossing, tell, cpuStats(game.them).keeper, rng);
+    game.plan = EASY ? { start: 0.5, x: -game.crossing.x * 0.6, y: 1 } : cpuKeeperPlan(game.crossing, tell, cpuStats(game.them).keeper, rng);
     game.strikeAt = now();
   }
 }
@@ -339,7 +212,18 @@ function settle() {
   const moment = momentScore({ outcome: r.outcome, playerShooting: game.shooterIsMe, styles, suddenDeath: isSuddenDeath(game.shootout), decisive: winner(game.shootout) !== null });
   const label = game.shooterIsMe ? word : 'Huge save!';
   setTimeout(() => clips.stop(moment, label), 1300);
-  if (navigator.vibrate) navigator.vibrate(good ? [30, 40, 60] : 25);
+  haptic(good ? 'heavy' : 'light');
+  const scorer = game.shooterIsMe ? game.me : game.them;
+  if (scored) {
+    sfx.roar();
+    stage.goalCelebration([scorer.c1, scorer.c2, '#ffcc33']);
+  } else if (r.outcome === 'save') {
+    stage.crowdReact(0.6);
+    sfx.roar();
+    stage.shake(0.5);
+  } else {
+    sfx.groan();
+  }
   game.phase = 'result';
   setTimeout(nextKick, 1700);
 }
@@ -347,9 +231,14 @@ function settle() {
 function finish(w) {
   game.phase = 'over';
   const won = w === game.playerTeam;
+  let dailyLine = '';
   if (!game.recorded) {
     game.recorded = true;
     recordShootout(profile, won);
+    if (game.mode === 'daily') {
+      const d = recordDaily(profile, game.day, won);
+      dailyLine = d.firstToday ? ` Daily streak: ${d.streak} day${d.streak === 1 ? '' : 's'}${d.usedFreeze ? ' (a streak freeze saved it)' : ''}.` : '';
+    }
     saveProfile(storage, profile);
   }
   const clipBtn = $('btn-clip');
@@ -367,6 +256,7 @@ function finish(w) {
   $('panel-text').textContent = game.mode === 'challenge'
     ? (won ? 'You beat their challenge. Send one back!' : 'They got you. Send them a rematch.')
     : 'Send your 5 penalties to a friend. Can they save them?';
+  $('panel-text').textContent += dailyLine;
   const share = $('btn-primary');
   share.hidden = false;
   if (game.myKicks.length >= 5) {
@@ -431,6 +321,13 @@ function banner(text, good) {
   bannerTimer = setTimeout(() => el.classList.remove('show'), 1300);
 }
 const hint = (t) => ($('hint').textContent = t);
+// haptics: the native Capacitor plugin inside the app, vibration on the web
+function haptic(kind) {
+  if (!profile.settings.haptics) return;
+  const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+  if (H) H.impact({ style: kind === 'heavy' ? 'HEAVY' : kind === 'medium' ? 'MEDIUM' : 'LIGHT' }).catch(() => {});
+  else if (navigator.vibrate) navigator.vibrate(kind === 'heavy' ? [30, 40, 60] : 20);
+}
 const now = () => performance.now() / 1000;
 
 // ---------------------------------------------------------------- input
@@ -438,6 +335,7 @@ let swipe = null;
 const toPoint = (e) => ({ x: e.clientX / window.innerHeight, y: e.clientY / window.innerHeight, t: now() });
 
 canvas.addEventListener('pointerdown', (e) => {
+  unlockAudio();
   if (game.phase === 'aim' || game.phase === 'runup' || game.phase === 'flight') swipe = [toPoint(e)];
 });
 canvas.addEventListener('pointermove', (e) => { if (swipe) swipe.push(toPoint(e)); });
@@ -455,35 +353,42 @@ canvas.addEventListener('pointerup', (e) => {
     // dive towards where the swipe ends, projected onto the goal mouth
     const end = pts[pts.length - 1];
     const g = goalPointFromScreen(end.x * window.innerHeight, end.y * window.innerHeight);
-    game.plan = playerKeeperPlan(g.x, g.y, now() - game.strikeAt);
+    game.plan = playerKeeperPlan(g.x, g.y, game.sim ? game.sim.t : now() - game.strikeAt);
   }
 });
 
-const raycaster = new THREE.Raycaster();
-const goalPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -SPOT_DISTANCE);
-function goalPointFromScreen(px, py) {
-  const ndc = new THREE.Vector2((px / window.innerWidth) * 2 - 1, -(py / window.innerHeight) * 2 + 1);
-  raycaster.setFromCamera(ndc, camera);
-  const hit = new THREE.Vector3();
-  raycaster.ray.intersectPlane(goalPlane, hit);
-  return { x: -hit.x, y: hit.y };
-}
+const goalPointFromScreen = (px, py) => stage.goalPointFromScreen(px, py);
 
 // ---------------------------------------------------------------- loop
 let last = now();
 function frame() {
   const t = now();
-  const dt = Math.min(0.05, t - last);
+  const realDt = Math.min(0.05, t - last);
   last = t;
 
+  // slow motion for the last moments of a close call
+  if (game.phase === 'flight' && game.sim && !game.slowmo && game.crossing) {
+    const left = game.crossing.t - game.sim.t;
+    const h = handsAt(game.plan, game.crossing.t);
+    const close = Math.hypot(h.x - game.crossing.x, h.y - game.crossing.y) < 1.1 || Math.abs(Math.abs(game.crossing.x) - GOAL_HALF_WIDTH) < 0.35 || Math.abs(game.crossing.y - GOAL_HEIGHT) < 0.3;
+    if (left < 0.22 && close && !reducedMotion) { game.slowmo = true; game.timeScale = 0.28; }
+  }
+  if (game.phase !== 'flight') game.timeScale += (1 - game.timeScale) * Math.min(1, realDt * 4);
+  // debug photo mode (?debug): freeze the frame when a test-supplied condition hits
+  if (window.__pkPauseWhen && game.phase === 'flight' && window.__pkPauseWhen(game)) { game.paused = true; window.__pkPauseWhen = null; }
+  const dt = game.paused ? 0 : realDt * game.timeScale;
+
   if (game.phase === 'runup') {
-    // shooter jogs in, leaning towards the side the run-up "tells"
+    // shooter jogs in on a curved run, leaning the way the run-up "tells"
     const left = game.strikeAt - t;
     const f = 1 - Math.max(0, left) / 1.2;
-    shooter.position.set(W(-1.4 + 1.1 * f), 0, -2.6 + 2.35 * f);
-    shooter.rotation.y = 0;
-    shooter.rotation.z = W(game.tell) * 0.12 * f;
+    shooter.root.position.set(W(-1.4 + 1.15 * f), 0, -2.6 + 2.32 * f);
+    shooter.root.rotation.y = 0.5 * (1 - f);
+    if (f < 0.85) shooter.run(t * 11, W(game.tell) * -0.1 * f);
+    else shooter.strike((f - 0.85) / 0.3);
     if (left <= 0) strike();
+  } else if (game.phase === 'flight' && !game.shooterIsMe) {
+    shooter.strike(Math.min(1, 0.45 + game.sim.t * 2.5));
   }
 
   if (game.sim && (game.phase === 'flight' || game.phase === 'result')) {
@@ -494,47 +399,107 @@ function frame() {
       if (game.phase === 'flight' && prevZ < SPOT_DISTANCE && s.p.z >= SPOT_DISTANCE) {
         settle();
         const o = game.outcome.outcome;
-        if (o === 'save') { s.v.z = -Math.abs(s.v.z) * 0.3; s.v.x += (s.p.x > 0 ? 1 : -1) * 2.5; s.v.y *= 0.4; s.spin = 0; }
-        if (o === 'post') { s.v.z = -Math.abs(s.v.z) * 0.45; s.v.x *= -0.5; s.spin = 0; }
+        if (o === 'save') { s.v.z = -Math.abs(s.v.z) * 0.3; s.v.x += (s.p.x > 0 ? 1 : -1) * 2.5; s.v.y *= 0.4; s.spin = 0; sfx.glove(); }
+        if (o === 'post') { s.v.z = -Math.abs(s.v.z) * 0.45; s.v.x *= -0.5; s.spin = 0; sfx.post(); }
+        if (o === 'goal' && game.outcome.reason.startsWith('in-off')) sfx.post();
       }
-      // the net catches goals
-      if (s.p.z > SPOT_DISTANCE + NET_DEPTH - 0.2 && Math.abs(s.p.x) < GOAL_HALF_WIDTH) {
+      // the net catches goals and bulges
+      if (s.p.z > SPOT_DISTANCE + NET_DEPTH - 0.2 && Math.abs(s.p.x) < GOAL_HALF_WIDTH && s.p.y < GOAL_HEIGHT) {
+        if (s.v.z > 1) { stage.netImpact(s.p.x, s.p.y, s.v.z); sfx.net(); }
         s.p.z = SPOT_DISTANCE + NET_DEPTH - 0.2;
         s.v.z *= -0.1; s.v.x *= 0.3; s.v.y *= 0.3;
       }
     }
     if (game.phase === 'flight' && s.t > 3) settle(); // ball stopped short
-    ball.position.set(W(s.p.x), s.p.y, s.p.z);
-    ball.rotation.x += s.v.z * dt * 4;
-    ball.rotation.y += s.spin * dt;
+    stage.setBall(s.p, s.v, s.spin, dt, game.phase === 'flight');
   }
 
-  // keeper follows its dive plan (time relative to the strike)
-  if (game.phase === 'flight' || game.phase === 'result' || game.phase === 'runup') {
-    const h = handsAt(game.plan, t - game.strikeAt);
-    keeper.position.set(W(h.x * 0.8), Math.max(0, (h.y - KEEPER_START.y) * 0.6), SPOT_DISTANCE - 0.05);
-    keeper.rotation.z = W(h.x) * 0.38;
-    keeper.userData.armL.rotation.z = keeper.userData.armR.rotation.z = h.progress * 2.4 * Math.sign(W(h.x) || 1);
+  // keeper: ready stance, then the dive plan (time relative to the strike)
+  const kt = game.sim ? game.sim.t : t - game.strikeAt;
+  if (game.phase === 'aim' || game.phase === 'idle' || (game.phase === 'runup' && kt < game.plan.start)) {
+    keeper.ready(t);
+  } else if (game.phase === 'flight' || game.phase === 'result' || game.phase === 'runup') {
+    const h = handsAt(game.plan, kt);
+    keeper.root.position.set(W(KEEPER_START.x), 0, SPOT_DISTANCE - 0.05);
+    if (game.phase === 'result' && game.outcome && game.outcome.outcome === 'save' && kt > game.crossing.t + 0.7) keeper.celebrate(t);
+    else if (h.progress > 0 || kt >= game.plan.start) keeper.dive(h.x - KEEPER_START.x, h.y - KEEPER_START.y, h.progress);
+    else keeper.ready(t);
   }
+  if (game.phase === 'result' && game.outcome && !game.shooterIsMe && game.outcome.outcome === 'goal') shooter.celebrate(t);
+  if (game.phase === 'result' && game.outcome && !game.shooterIsMe && game.outcome.outcome !== 'goal' && kt > game.crossing.t + 0.5) shooter.dejected();
+  if (game.phase === 'aim') shooter.idle(t);
 
-  renderer.render(scene, camera);
+  stage.update(realDt);
+  stage.render();
   requestAnimationFrame(frame);
 }
 
 // ---------------------------------------------------------------- boot
+const DEBUG = /[?&]debug\b/.test(location.search);
+if (DEBUG) {
+  // for automated screenshots/tests only; never reachable from a normal link
+  window.__pk = game;
+  window.__pkResolve = resolveKick;
+  if (/[?&]shots\b/.test(location.search)) document.body.classList.add('shots');
+}
+const EASY = DEBUG && /[?&]easy\b/.test(location.search);
+const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+setMuted(profile.settings.muted);
 resetPositions();
 setCamera(true);
 requestAnimationFrame(frame);
-if (challenge) {
-  const them = TEAMS[challenge.nation] || TEAMS[0];
-  $('panel-title').textContent = `${them.flag} ${them.name} challenges you`;
-  $('panel-text').textContent = `They scored ${challenge.scored}/5. Save their exact kicks, then take yours.`;
-} else {
-  $('panel-title').textContent = 'Penalty Kings';
-  $('panel-text').textContent = `${game.me.flag} ${game.me.name}: swipe to shoot, swipe to save. Best of five.`;
+function titleScreen() {
+  $('panel').classList.toggle('title', !challenge);
+  const primary = $('btn-primary');
+  const daily = $('btn-clip');
+  const nation = $('btn-secondary');
+  if (challenge) {
+    const them = TEAMS[challenge.nation] || TEAMS[0];
+    $('panel-title').textContent = `${them.flag} ${them.name} challenges you`;
+    $('panel-text').textContent = `They scored ${challenge.scored}/5. Save their exact kicks, then take yours.`;
+    primary.textContent = 'Accept the challenge';
+    primary.onclick = () => start('challenge');
+    daily.hidden = true;
+    nation.hidden = true;
+  } else {
+    $('panel-title').innerHTML = '<span class="crown">\u265b</span>PENALTY KINGS';
+    const lvl = levelFromXp(profile.xp);
+    $('panel-text').textContent = `${game.me.flag} ${game.me.name} \u00b7 Level ${lvl} \u00b7 ${profile.coins} coins`;
+    primary.textContent = 'Quick shootout';
+    primary.onclick = () => { $('panel').classList.remove('title'); start('quick'); };
+    const today = dayKey();
+    const done = profile.daily.lastDay === today;
+    daily.hidden = false;
+    daily.textContent = done ? `Daily challenge done \u2713 \u00b7 streak ${profile.streak.count}` : `Daily challenge \u00b7 streak ${profile.streak.count}`;
+    daily.onclick = () => { $('panel').classList.remove('title'); start('daily'); };
+    nation.hidden = false;
+    nation.textContent = `Playing for ${game.me.flag} ${game.me.name} \u00b7 change`;
+    nation.onclick = pickNation;
+  }
+  $('panel').hidden = false;
 }
-$('btn-primary').textContent = 'Kick off';
-$('btn-primary').onclick = start;
-$('btn-secondary').hidden = true;
-$('btn-clip').hidden = true;
-$('panel').hidden = false;
+
+function pickNation() {
+  const sel = document.createElement('select');
+  sel.className = 'nation-picker';
+  [...TEAMS].sort((a, b) => a.name.localeCompare(b.name)).forEach((t) => {
+    const o = document.createElement('option');
+    o.value = t.code;
+    o.textContent = `${t.flag} ${t.name}`;
+    if (t.code === game.me.code) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.onchange = () => {
+    game.me = TEAMS[teamIndex(sel.value)];
+    profile.nation = game.me.code;
+    saveProfile(storage, profile);
+    sel.remove();
+    titleScreen();
+  };
+  sel.onblur = () => sel.remove();
+  $('panel').appendChild(sel);
+  sel.focus();
+  if (sel.showPicker) try { sel.showPicker(); } catch { /* not supported */ }
+}
+
+titleScreen();

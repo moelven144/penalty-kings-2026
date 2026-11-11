@@ -39,3 +39,11 @@ html, body { margin: 0; height: 100%; background: #06101f; color: var(--ink); ov
 #panel button.ghost { background: transparent; color: var(--ink); border: 1.5px solid rgba(255,255,255,0.35); }
 #panel button.clip { background: #ffffff; color: #06101f; }
 #panel button[hidden] { display: none; }
+
+/* title screen */
+#panel.title h1 { font-size: 34px; font-weight: 900; letter-spacing: 0.06em; color: var(--gold);
+  text-shadow: 0 2px 0 #7a5a00, 0 8px 30px rgba(255, 204, 51, 0.35); }
+#panel.title .crown { display: block; font-size: 46px; line-height: 1; margin-bottom: 4px; }
+.nation-picker { display: block; width: 100%; margin-top: 10px; min-height: 48px; font-size: 17px; border-radius: 12px; }
+
+body.shots #hint { display: none; }
