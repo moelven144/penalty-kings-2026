@@ -4,7 +4,7 @@ The v2.0 remake: real 3D (Three.js), swipe-to-curve shooting, swipe-to-dive
 keeping, a fair CPU keeper and challenge links. Free, no ads, no purchases,
 no bought assets. The live 1.x game in `www/` is untouched until v2 replaces it.
 
-Status: **playable prototype with placeholder graphics.** Game logic is final-ish
+Status: **playable prototype with placeholder graphics.** See `HANDOVER.md` for the art pass and `STORE.md` for the App Store text. Game logic is final-ish
 and tested; everything visual in `js/main.js` ("scene" section) gets replaced in
 the art pass.
 
@@ -12,7 +12,7 @@ the art pass.
 
 ```bash
 npm run serve:v2      # then open http://localhost:8000/v2/
-npm run test:v2       # physics, keeper, swipe, rules, challenge links, balance
+npm run test:v2       # 29 tests: physics, keeper, swipe, rules, links, balance, progression, modes
 ```
 
 ## Files
@@ -26,6 +26,9 @@ npm run test:v2       # physics, keeper, swipe, rules, challenge links, balance
 | `js/challenge.js` | 5 kicks packed into a ~38-character link (`#c=...`), checksummed; no server needed |
 | `js/teams.js` | The 48 nations. Challenge links store the INDEX: append only, never reorder |
 | `js/rng.js` | Seeded random numbers so challenges replay identically |
+| `js/profile.js` | XP, levels, earned coins, daily streak with freezes, unlocks, stats; carries v1 careers over |
+| `js/modes.js` | Daily Challenge fixture, 300 Road to Glory levels with stated stars, cosmetics catalogue |
+| `js/clip.js` | Records each kick, keeps the best moment, shares it as a video with the challenge link |
 | `js/main.js` | Prototype scene, input, game loop and UI |
 | `vendor/three.module.min.js` | Three.js r170, bundled locally so the app works offline |
 
