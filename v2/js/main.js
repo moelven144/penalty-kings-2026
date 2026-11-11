@@ -13,7 +13,8 @@ import { encodeChallenge, readChallengeFromLocation, quantise } from './challeng
 import { TEAMS, teamIndex, cpuStats } from './teams.js';
 import { makeRng } from './rng.js';
 import { loadProfile, saveProfile, recordKick, recordShootout, recordDaily, styleOf, levelFromXp, dayKey } from './profile.js';
-import { dailyFixture } from './modes.js';
+import { dailyFixture, gloryLevel, starsFor, isUnlocked, hitsZone, ZONES, REGIONS, LEVEL_COUNT } from './modes.js';
+import { recordGlory, totalStars } from './profile.js';
 import { ClipRecorder, momentScore, shareClip } from './clip.js';
 import { createStage, W } from './scene.js';
 import { unlock as unlockAudio, sfx, setMuted } from './audio.js';
@@ -63,6 +64,7 @@ const game = {
 };
 
 function start(mode = challenge ? 'challenge' : 'quick') {
+  $('btn-glory').hidden = true;
   game.mode = mode;
   game.shootout = newShootout();
   game.recorded = false;
@@ -126,6 +128,7 @@ function setCamera(shooting) {
 }
 
 function nextKick() {
+  if (game.mode === 'glory') return gloryNextKick();
   updateScoreboard();
   if (game.extra) return extraKick();
   const w = winner(game.shootout);
@@ -171,6 +174,12 @@ function strike() {
   if (game.shooterIsMe) {
     const tell = runUpTell(game.kick.aimX, 0.45, rng);
     game.plan = EASY ? { start: 0.5, x: -game.crossing.x * 0.6, y: 1 } : cpuKeeperPlan(game.crossing, tell, cpuStats(game.them).keeper, rng);
+    if (game.mode === 'glory') {
+      const L = game.level;
+      if (L.type === 'targets' && !L.withKeeper) game.plan = { start: 99, x: 0, y: 1 };
+      else if (L.keeper.alwaysDives) game.plan = { start: -0.05, x: rng.sign() * rng.range(1.8, 2.8), y: rng.range(0.4, 1.4) };
+      else game.plan = cpuKeeperPlan(game.crossing, tell, L.keeper, rng);
+    }
     game.strikeAt = now();
   }
 }
@@ -192,11 +201,16 @@ const REASONS = {
 
 function settle() {
   // decide the kick with whatever dive plan exists at the moment of crossing
-  const r = resolveKick(game.kick, game.plan);
+  let r = resolveKick(game.kick, game.plan);
+  if (game.mode === 'glory' && game.level.type === 'targets' && !game.level.withKeeper && r.outcome === 'save') r = { ...r, outcome: 'goal', reason: 'beaten' };
   game.outcome = r;
   const scored = r.outcome === 'goal';
   const team = game.shooterIsMe ? game.playerTeam : 1 - game.playerTeam;
-  if (!game.extra) record(game.shootout, team, scored);
+  if (game.mode === 'glory') {
+    const st = game.shooterIsMe && scored ? styleOf(game.kick, r.crossing) : [];
+    game.results.push({ outcome: r.outcome, styles: st, crossing: r.crossing, kick: game.kick });
+    if (game.level.type === 'targets') for (const z of game.level.targets) if (hitsZone(z, r.crossing)) stage.hitTarget(z);
+  } else if (!game.extra) record(game.shootout, team, scored);
   else game.extraGoals = (game.extraGoals || 0) + (scored ? 1 : 0);
   if (game.shooterIsMe && game.myKicks.length < 5) game.myKicks.push(quantise(game.kick));
   const good = game.shooterIsMe ? scored : !scored;
@@ -209,7 +223,7 @@ function settle() {
   const reward = earned.xp ? `  +${earned.xp} XP` : '';
   hint((REASONS[r.reason] || '') + reward + (earned.levelUp ? `  Level ${earned.levelUp}!` : ''));
   // keep the clip if this is the best moment so far
-  const moment = momentScore({ outcome: r.outcome, playerShooting: game.shooterIsMe, styles, suddenDeath: isSuddenDeath(game.shootout), decisive: winner(game.shootout) !== null });
+  const moment = momentScore({ outcome: r.outcome, playerShooting: game.shooterIsMe, styles, suddenDeath: isSuddenDeath(game.shootout), decisive: game.mode !== 'glory' && winner(game.shootout) !== null });
   const label = game.shooterIsMe ? word : 'Huge save!';
   setTimeout(() => clips.stop(moment, label), 1300);
   haptic(good ? 'heavy' : 'light');
@@ -440,6 +454,7 @@ if (DEBUG) {
   // for automated screenshots/tests only; never reachable from a normal link
   window.__pk = game;
   window.__pkResolve = resolveKick;
+  window.__pkLevel = (n) => startLevel(n);
   if (/[?&]shots\b/.test(location.search)) document.body.classList.add('shots');
 }
 const EASY = DEBUG && /[?&]easy\b/.test(location.search);
@@ -448,7 +463,146 @@ setMuted(profile.settings.muted);
 resetPositions();
 setCamera(true);
 requestAnimationFrame(frame);
+// ---------------------------------------------------------------- road to glory
+function startLevel(n) {
+  $('btn-glory').hidden = true;
+  const L = gloryLevel(n);
+  game.mode = 'glory';
+  game.level = L;
+  game.results = [];
+  game.shootout = newShootout();
+  game.recorded = false;
+  game.extra = false;
+  game.myKicks = [];
+  clips.reset();
+  rng = makeRng((Date.now() ^ (n * 7919)) >>> 0);
+  game.them = TEAMS[teamIndex(L.opponent)] || TEAMS[0];
+  if (game.them.code === game.me.code) game.them = TEAMS[(teamIndex(L.opponent) + 1) % TEAMS.length];
+  game.playerTeam = 0;
+  setTeams();
+  stage.showTargets(L.type === 'targets' ? L.targets.map((name) => ({ name, ...ZONES[name] })) : []);
+  $('panel').hidden = true;
+  $('panel').classList.remove('title');
+  gloryNextKick();
+}
+
+function gloryHud() {
+  const L = game.level;
+  const done = game.results.length;
+  $('team0').querySelector('.name').textContent = `Level ${L.n}`;
+  $('team1').querySelector('.name').textContent = REGIONS.find((r) => r.id === L.region).name;
+  $('score').textContent = `${Math.min(done + 1, L.kicks)}/${L.kicks}`;
+  $('team0').querySelector('.dots').innerHTML = game.results.map((r) => `<span class="dot ${(L.type === 'keep' ? r.outcome !== 'goal' : r.outcome === 'goal') ? 'goal' : 'miss'}"></span>`).join('');
+  $('team1').querySelector('.dots').innerHTML = '';
+}
+
+function gloryOver() {
+  const L = game.level;
+  const r = game.results;
+  if (r.length >= L.kicks) return true;
+  if (L.type === 'sudden' && r.length && r[r.length - 1].outcome !== 'goal') return true;
+  if (L.type === 'targets' && L.targets.every((z) => r.some((x) => hitsZone(z, x.crossing)))) return true;
+  return false;
+}
+
+function gloryNextKick() {
+  gloryHud();
+  if (gloryOver()) return gloryFinish();
+  resetPositions();
+  const L = game.level;
+  game.shooterIsMe = L.type !== 'keep';
+  const KEEPER_KITS = ['#f97316', '#a3e635', '#22d3ee', '#f472b6', '#facc15'];
+  const kc = KEEPER_KITS[L.n % KEEPER_KITS.length];
+  keeper.setKit(kc, '#111827', kc);
+  keeper.root.visible = !(L.type === 'targets' && !L.withKeeper);
+  game.plan = { start: 99, x: 0, y: 1 };
+  setCamera(game.shooterIsMe);
+  sfx.murmur();
+  if (game.shooterIsMe) {
+    shooter.setKit(game.me.c1, game.me.c2, game.me.c1);
+    game.phase = 'aim';
+    clips.start();
+    hint(L.stars[0] + '  ·  Swipe up to shoot');
+  } else {
+    shooter.setKit(game.them.c1, game.them.c2, game.them.c1);
+    game.kick = cpuKick(L.shooter.finishing, rng);
+    game.tell = runUpTell(game.kick.aimX, L.shooter.disguise, rng);
+    game.phase = 'runup';
+    clips.start();
+    game.strikeAt = now() + 1.2;
+    hint(L.stars[0] + '  ·  Swipe to dive');
+  }
+}
+
+function gloryFinish() {
+  game.phase = 'over';
+  keeper.root.visible = true;
+  stage.showTargets([]);
+  const L = game.level;
+  const stars = starsFor(L, game.results);
+  const { newStars } = recordGlory(profile, L.id, stars);
+  saveProfile(storage, profile);
+  $('panel').classList.remove('title');
+  $('panel-title').textContent = stars ? '★'.repeat(stars) + '☆'.repeat(3 - stars) : 'Not this time';
+  $('panel-text').innerHTML = L.stars.map((t, i) => `<span class="star-line ${i < stars ? 'got' : ''}">${i < stars ? '★' : '☆'} ${t}</span>`).join('')
+    + (newStars ? `<span class="star-line got">+${newStars} new star${newStars > 1 ? 's' : ''}</span>` : '');
+  const next = $('btn-primary');
+  const retry = $('btn-clip');
+  const levels = $('btn-secondary');
+  next.hidden = false;
+  if (stars && L.n < LEVEL_COUNT) { next.textContent = `Next: level ${L.n + 1}`; next.onclick = () => startLevel(L.n + 1); }
+  else { next.textContent = 'Try again'; next.onclick = () => startLevel(L.n); }
+  retry.hidden = !stars;
+  retry.textContent = 'Replay for more stars';
+  retry.onclick = () => startLevel(L.n);
+  levels.hidden = false;
+  levels.textContent = 'All levels';
+  levels.onclick = levelMap;
+  $('panel').hidden = false;
+  hint('');
+}
+
+function levelMap() {
+  $('btn-glory').hidden = true;
+  $('panel').classList.remove('title');
+  $('panel-title').textContent = 'Road to Glory';
+  $('panel-text').textContent = `${totalStars(profile)} of ${LEVEL_COUNT * 3} stars`;
+  const grid = document.createElement('div');
+  grid.className = 'level-map';
+  let firstOpen = null;
+  for (const region of REGIONS) {
+    const h = document.createElement('h3');
+    h.textContent = region.name;
+    grid.appendChild(h);
+    const row = document.createElement('div');
+    row.className = 'level-grid';
+    const end = (REGIONS[REGIONS.indexOf(region) + 1] || { from: LEVEL_COUNT + 1 }).from - 1;
+    for (let n = region.from; n <= end; n++) {
+      const b = document.createElement('button');
+      const st = profile.glory[`g${n}`] || 0;
+      const open = isUnlocked(profile.glory, n);
+      b.className = 'lvl' + (open ? '' : ' locked') + (open && !st ? ' current' : '');
+      b.innerHTML = `<b>${n}</b><i>${open ? '★'.repeat(st) + '☆'.repeat(3 - st) : '\u{1F512}'}</i>`;
+      b.disabled = !open;
+      b.onclick = () => { grid.remove(); startLevel(n); };
+      if (open && !st && !firstOpen) firstOpen = b;
+      row.appendChild(b);
+    }
+    grid.appendChild(row);
+  }
+  $('panel-extra').replaceChildren(grid);
+  $('btn-primary').hidden = true;
+  $('btn-clip').hidden = true;
+  const back = $('btn-secondary');
+  back.hidden = false;
+  back.textContent = 'Back';
+  back.onclick = () => { $('panel-extra').replaceChildren(); titleScreen(); };
+  $('panel').hidden = false;
+  if (firstOpen) setTimeout(() => firstOpen.scrollIntoView({ block: 'center' }), 50);
+}
+
 function titleScreen() {
+  $('panel-extra').replaceChildren();
   $('panel').classList.toggle('title', !challenge);
   const primary = $('btn-primary');
   const daily = $('btn-clip');
@@ -472,6 +626,10 @@ function titleScreen() {
     daily.hidden = false;
     daily.textContent = done ? `Daily challenge done \u2713 \u00b7 streak ${profile.streak.count}` : `Daily challenge \u00b7 streak ${profile.streak.count}`;
     daily.onclick = () => { $('panel').classList.remove('title'); start('daily'); };
+    const glory = $('btn-glory');
+    glory.hidden = false;
+    glory.textContent = `Road to Glory \u00b7 ${totalStars(profile)} \u2605`;
+    glory.onclick = levelMap;
     nation.hidden = false;
     nation.textContent = `Playing for ${game.me.flag} ${game.me.name} \u00b7 change`;
     nation.onclick = pickNation;
@@ -502,4 +660,49 @@ function pickNation() {
   if (sel.showPicker) try { sel.showPicker(); } catch { /* not supported */ }
 }
 
-titleScreen();
+// ---------------------------------------------------------------- onboarding & sound
+const HOW = [
+  ['☝️', 'Swipe up to shoot', 'Swipe from the ball towards the goal. Faster is harder. Bend your swipe to curl it.'],
+  ['\u{1F9E4}', 'Swipe to save', 'Watch the run-up, then swipe where you want to dive. Go too early and they will read you.'],
+  ['\u{1F4E8}', 'Send it to your mates', 'After a shootout, send your five penalties as a link. Can they save them?'],
+];
+function onboarding(step = 0) {
+  if (step >= HOW.length) {
+    profile.onboarded = true;
+    saveProfile(storage, profile);
+    return titleScreen();
+  }
+  const [icon, title, text] = HOW[step];
+  $('panel').classList.remove('title');
+  $('panel-title').textContent = title;
+  $('panel-text').textContent = text;
+  const pic = document.createElement('div');
+  pic.className = 'how';
+  pic.textContent = icon;
+  $('panel-extra').replaceChildren(pic);
+  const next = $('btn-primary');
+  next.hidden = false;
+  next.textContent = step < HOW.length - 1 ? 'Next' : "Let's play";
+  next.onclick = () => { unlockAudio(); onboarding(step + 1); };
+  $('btn-clip').hidden = true;
+  $('btn-glory').hidden = true;
+  const skip = $('btn-secondary');
+  skip.hidden = false;
+  skip.textContent = 'Skip';
+  skip.onclick = () => onboarding(HOW.length);
+  $('panel').hidden = false;
+}
+
+const muteBtn = $('mute');
+const paintMute = () => (muteBtn.textContent = profile.settings.muted ? '\u{1F507}' : '\u{1F50A}');
+muteBtn.onclick = () => {
+  unlockAudio();
+  profile.settings.muted = !profile.settings.muted;
+  setMuted(profile.settings.muted);
+  saveProfile(storage, profile);
+  paintMute();
+};
+paintMute();
+
+if (!profile.onboarded && !challenge) onboarding();
+else titleScreen();

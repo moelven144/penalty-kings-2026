@@ -46,7 +46,7 @@ export function difficulty(n) {
 }
 
 /** Target zones on the goal plane, in physics coordinates (metres). */
-const ZONES = {
+export const ZONES = {
   topLeft: { x: -2.9, y: 2.0, r: 0.55 },
   topRight: { x: 2.9, y: 2.0, r: 0.55 },
   lowLeft: { x: -2.9, y: 0.4, r: 0.6 },
@@ -81,7 +81,7 @@ export function gloryLevel(n) {
       level.targets = zones;
       level.kicks = count + 2;
       level.withKeeper = d > 0.5;
-      level.stars = [`Hit ${count - 1} targets`, `Hit all ${count}`, `Hit all ${count} with kicks to spare`];
+      level.stars = [`Hit ${count - 1} target${count - 1 === 1 ? '' : 's'}`, `Hit all ${count}`, `Hit all ${count} with kicks to spare`];
       level.need = [count - 1, count, count];
       break;
     }

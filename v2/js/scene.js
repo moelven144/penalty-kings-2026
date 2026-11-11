@@ -622,6 +622,8 @@ export function createStage(canvas) {
   scene.add(confetti);
   let confettiLife = 0;
 
+  const targets = [];
+
   // ---- figures
   const keeper = new Figure(scene, { keeper: true });
   const shooter = new Figure(scene);
@@ -703,6 +705,7 @@ export function createStage(canvas) {
       confetti.visible = true;
     } else confetti.visible = false;
 
+    targets.forEach((r, i) => { if (!r.userData.hit) r.scale.setScalar(1 + 0.05 * Math.sin(clock * 5 + i)); });
     // trail fades when the ball slows
     trailMat.opacity = Math.max(0, trailMat.opacity - dt * 1.2);
 
@@ -765,6 +768,34 @@ export function createStage(canvas) {
       crowdUniforms.uExcite.value = Math.max(crowdUniforms.uExcite.value, level);
     },
     shake(a) { shake = Math.max(shake, a); },
+    /** Glowing target rings on the goal mouth (physics coords, metres). */
+    showTargets(list) {
+      targets.forEach((t) => scene.remove(t));
+      targets.length = 0;
+      for (const z of list) {
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(z.r, 0.045, 10, 48),
+          new THREE.MeshBasicMaterial({ color: '#ffcc33', transparent: true, opacity: 0.95, toneMapped: false }),
+        );
+        const disc = new THREE.Mesh(
+          new THREE.CircleGeometry(z.r, 40),
+          new THREE.MeshBasicMaterial({ color: '#ffcc33', transparent: true, opacity: 0.16, depthWrite: false, toneMapped: false }),
+        );
+        ring.add(disc);
+        ring.position.set(W(z.x), z.y, GOAL_Z - 0.06);
+        ring.userData = { name: z.name, hit: false };
+        scene.add(ring);
+        targets.push(ring);
+      }
+    },
+    hitTarget(name) {
+      const t = targets.find((r) => r.userData.name === name);
+      if (!t || t.userData.hit) return;
+      t.userData.hit = true;
+      t.material.color.set('#22c55e');
+      t.children[0].material.color.set('#22c55e');
+      t.children[0].material.opacity = 0.35;
+    },
     paintCrowd,
     /** Screen point -> physics point on the goal plane. */
     goalPointFromScreen(px, py) {
