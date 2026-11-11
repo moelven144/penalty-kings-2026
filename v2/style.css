@@ -1,0 +1,40 @@
+/* Penalty Kings v2 — prototype UI. Placeholder look; the art pass replaces it. */
+:root {
+  --ink: #ffffff;
+  --muted: rgba(255, 255, 255, 0.72);
+  --panel: rgba(6, 16, 31, 0.86);
+  --gold: #ffcc33;
+  --green: #22c55e;
+  --red: #ef4444;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: #06101f; color: var(--ink); overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  touch-action: none; user-select: none; -webkit-user-select: none; }
+#stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#hud { position: fixed; inset: 0; pointer-events: none;
+  padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+#scoreboard { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--panel); border-radius: 14px; padding: 10px 14px; max-width: 520px; margin: 0 auto; }
+.team { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.team.right { align-items: flex-end; }
+.team .name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dots { display: flex; gap: 4px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted); }
+.dot.goal { background: var(--green); border-color: var(--green); }
+.dot.miss { background: var(--red); border-color: var(--red); }
+#score { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+#banner { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font-size: clamp(40px, 12vw, 84px);
+  font-weight: 900; letter-spacing: 0.02em; text-shadow: 0 6px 24px rgba(0,0,0,0.5);
+  opacity: 0; transform: scale(0.8); transition: opacity 0.18s, transform 0.18s; }
+#banner.show { opacity: 1; transform: scale(1); }
+#hint { position: absolute; left: 16px; right: 16px; bottom: max(24px, env(safe-area-inset-bottom));
+  text-align: center; font-size: 16px; font-weight: 600; color: var(--muted); }
+#panel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100% - 32px));
+  background: var(--panel); border-radius: 20px; padding: 24px; text-align: center; backdrop-filter: blur(10px); }
+#panel h1 { margin: 0 0 8px; font-size: 28px; }
+#panel p { margin: 0 0 20px; color: var(--muted); line-height: 1.4; }
+#panel button { display: block; width: 100%; min-height: 52px; margin-top: 10px; border: 0; border-radius: 14px;
+  font-size: 18px; font-weight: 800; color: #06101f; background: var(--gold); cursor: pointer; }
+#panel button.ghost { background: transparent; color: var(--ink); border: 1.5px solid rgba(255,255,255,0.35); }
+#panel button[hidden] { display: none; }

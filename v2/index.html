@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#06101f">
+  <title>Penalty Kings</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <div id="hud">
+    <div id="scoreboard">
+      <div class="team" id="team0"><span class="name"></span><span class="dots"></span></div>
+      <div id="score">0 – 0</div>
+      <div class="team right" id="team1"><span class="name"></span><span class="dots"></span></div>
+    </div>
+    <div id="banner"></div>
+    <div id="hint"></div>
+  </div>
+  <div id="panel" hidden>
+    <h1 id="panel-title"></h1>
+    <p id="panel-text"></p>
+    <button id="btn-primary"></button>
+    <button id="btn-secondary" class="ghost"></button>
+  </div>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
