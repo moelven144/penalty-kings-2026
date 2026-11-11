@@ -33,7 +33,51 @@ let rng = makeRng((Date.now() ^ 0x9e3779b9) >>> 0);
 const challenge = readChallengeFromLocation(location.hash);
 const storage = (() => { try { return window.localStorage; } catch { return { getItem: () => null, setItem: () => {} }; } })();
 const profile = loadProfile(storage);
-const clips = new ClipRecorder(canvas);
+const clips = new ClipRecorder(canvas, 30, paintClipOverlay);
+
+// branding burned into every shared clip, so it makes sense on TikTok with no context
+function paintClipOverlay(ctx, w, h) {
+  ctx.save();
+  const grad = ctx.createLinearGradient(0, 0, 0, 200);
+  grad.addColorStop(0, 'rgba(4,9,21,0.85)');
+  grad.addColorStop(1, 'rgba(4,9,21,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, 200);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffcc33';
+  ctx.font = '900 38px -apple-system, Arial Black, sans-serif';
+  ctx.fillText('\u265b PENALTY KINGS', w / 2, 62);
+  if (game.shootout && game.mode !== 'glory') {
+    const [a, b] = score(game.shootout);
+    const t0 = game.playerTeam === 0 ? game.me : game.them;
+    const t1 = game.playerTeam === 0 ? game.them : game.me;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 44px -apple-system, Arial, sans-serif';
+    ctx.fillText(`${t0.flag} ${t0.code}  ${a} \u2013 ${b}  ${t1.code} ${t1.flag}`, w / 2, 126);
+  } else if (game.level) {
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 40px -apple-system, Arial, sans-serif';
+    ctx.fillText(`Road to Glory \u00b7 Level ${game.level.n}`, w / 2, 124);
+  }
+  // the call-out once the kick is decided
+  if (game.outcome && (game.phase === 'result' || game.phase === 'replay')) {
+    const g2 = ctx.createLinearGradient(0, h - 260, 0, h);
+    g2.addColorStop(0, 'rgba(4,9,21,0)');
+    g2.addColorStop(1, 'rgba(4,9,21,0.9)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, h - 260, w, 260);
+    const STY = { topCorner: 'TOP BINS!', curve: 'WHAT A BEND!', panenka: 'PANENKA!' };
+    const st = game.shooterIsMe && game.outcome.outcome === 'goal' ? styleOf(game.kick, game.outcome.crossing) : [];
+    const word = st.length ? STY[st[0]] : { goal: 'GOAL!', save: 'SAVED!', miss: 'MISS!', post: 'OFF THE POST!' }[game.outcome.outcome];
+    ctx.fillStyle = '#ffcc33';
+    ctx.font = '900 76px -apple-system, Arial Black, sans-serif';
+    ctx.fillText(word, w / 2, h - 130);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 34px -apple-system, Arial, sans-serif';
+    ctx.fillText('Can you save it? Link in the message', w / 2, h - 70);
+  }
+  ctx.restore();
+}
 
 function homeNation() {
   // the player's country from the device region, shown as a flag; fallback Brazil
@@ -478,6 +522,7 @@ function frame() {
 
   stage.update(realDt);
   stage.render();
+  clips.tick();
   requestAnimationFrame(frame);
 }
 
@@ -488,6 +533,7 @@ if (DEBUG) {
   window.__pk = game;
   window.__pkResolve = resolveKick;
   window.__pkLevel = (n) => startLevel(n);
+  window.__pkClips = clips;
   if (/[?&]shots\b/.test(location.search)) document.body.classList.add('shots');
 }
 const EASY = DEBUG && /[?&]easy\b/.test(location.search);

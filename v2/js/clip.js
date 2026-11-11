@@ -35,9 +35,17 @@ export function momentScore({ outcome, playerShooting, styles = [], suddenDeath 
 }
 
 export class ClipRecorder {
-  constructor(canvas, fps = 30) {
+  /**
+   * @param canvas the game's WebGL canvas
+   * @param overlay optional (ctx, w, h) => void that paints branding on each frame
+   */
+  constructor(canvas, fps = 30, overlay = null) {
     this.canvas = canvas;
     this.fps = fps;
+    this.overlay = overlay;
+    // a 9:16 compositing canvas: the game view (cover-fit) plus the overlay
+    this.frame = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    if (this.frame) { this.frame.width = 720; this.frame.height = 1280; }
     this.mime = pickMime();
     this.rec = null;
     this.chunks = [];
@@ -45,14 +53,15 @@ export class ClipRecorder {
   }
 
   get supported() {
-    return !!this.mime && !!this.canvas.captureStream;
+    return !!this.mime && !!this.frame && !!this.frame.captureStream;
   }
 
   start() {
     if (!this.supported) return;
     this.cancel();
     try {
-      const stream = this.canvas.captureStream(this.fps);
+      this.paint();
+      const stream = this.frame.captureStream(this.fps);
       this.chunks = [];
       this.rec = new MediaRecorder(stream, { mimeType: this.mime, videoBitsPerSecond: 4_000_000 });
       this.rec.ondataavailable = (e) => e.data && e.data.size && this.chunks.push(e.data);
@@ -60,6 +69,24 @@ export class ClipRecorder {
     } catch {
       this.rec = null; // recording is a bonus; never break the game
     }
+  }
+
+  /** Copy the game view into the 9:16 frame and draw the overlay, every frame. */
+  paint() {
+    const ctx = this.frame.getContext('2d');
+    const W = this.frame.width;
+    const H = this.frame.height;
+    const src = this.canvas;
+    const scale = Math.max(W / src.width, H / src.height);
+    const sw = W / scale;
+    const sh = H / scale;
+    ctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, W, H);
+    if (this.overlay) this.overlay(ctx, W, H);
+  }
+
+  /** Call right after the game renders a frame (WebGL pixels are only readable then). */
+  tick() {
+    if (this.rec) this.paint();
   }
 
   /** Stop and keep the clip if it beats the best moment so far. */
