@@ -1,5 +1,13 @@
 # Handover: v2 art and feel pass
 
+**Status 2026-11-11:** a first art pass is DONE (`js/scene.js`, `js/audio.js`):
+the night stadium, crowd, floodlights, net bulge, ball trail, jointed players
+with animations, confetti, bloom, slow motion, synthesised sound, title screen,
+icon and store screenshots. The next session should **improve** it, not start
+over. Best wins, in order: better player models and animation (they're still
+simple primitives), a goal replay camera, a richer crowd (flags, scarves, a
+second tier), the vertical clip frame, and swipe-feel tuning on a real iPhone.
+
 Read this first. The plan, research and decisions are in the "Penalty Kings
 Remake Plan" doc; this file is the working brief for the code.
 
