@@ -9,7 +9,7 @@
     "ios": "cap open ios",
     "icons": "capacitor-assets generate --ios",
     "serve:v2": "python3 -m http.server 8000",
-    "test:v2": "node --test v2/test/game.test.mjs"
+    "test:v2": "node --test v2/test/*.test.mjs"
   },
   "dependencies": {
     "@capacitor/cli": "^8.4.0",

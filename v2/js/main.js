@@ -14,6 +14,8 @@ import { newShootout, record, winner, nextTeam, score, isSuddenDeath } from './r
 import { encodeChallenge, readChallengeFromLocation, quantise } from './challenge.js';
 import { TEAMS, teamIndex, cpuStats } from './teams.js';
 import { makeRng } from './rng.js';
+import { loadProfile, saveProfile, recordKick, recordShootout, styleOf, levelFromXp } from './profile.js';
+import { ClipRecorder, momentScore, shareClip } from './clip.js';
 
 const PLAY_URL = 'https://moelven144.github.io/penalty-kings-2026/v2/';
 const $ = (id) => document.getElementById(id);
@@ -169,6 +171,9 @@ resize();
 // ---------------------------------------------------------------- game state
 const rng = makeRng((Date.now() ^ 0x9e3779b9) >>> 0);
 const challenge = readChallengeFromLocation(location.hash);
+const storage = (() => { try { return window.localStorage; } catch { return { getItem: () => null, setItem: () => {} }; } })();
+const profile = loadProfile(storage);
+const clips = new ClipRecorder(canvas);
 
 function homeNation() {
   // the player's country from the device region, shown as a flag; fallback Brazil
@@ -183,7 +188,7 @@ function homeNation() {
 
 const game = {
   mode: challenge ? 'challenge' : 'quick',
-  me: homeNation(),
+  me: (profile.nation && TEAMS[teamIndex(profile.nation)]) || homeNation(),
   them: null,
   playerTeam: 0, // index in the shootout (0 kicks first)
   shootout: null,
@@ -200,6 +205,8 @@ const game = {
 
 function start() {
   game.shootout = newShootout();
+  game.recorded = false;
+  clips.reset();
   game.myKicks = [];
   if (challenge) {
     game.them = TEAMS[challenge.nation] || TEAMS[0];
@@ -267,6 +274,7 @@ function nextKick() {
   setCamera(game.shooterIsMe);
   if (game.shooterIsMe) {
     game.phase = 'aim';
+    clips.start();
     hint(isSuddenDeath(game.shootout) ? 'Sudden death. Swipe up to shoot' : 'Swipe up from the ball to shoot. Curve your swipe to bend it');
   } else {
     // CPU (or the challenger's recorded kick) is shooting; you keep
@@ -276,6 +284,7 @@ function nextKick() {
       : cpuKick(cpuStats(game.them).finishing, rng);
     game.tell = runUpTell(game.kick.aimX, cpuStats(game.them).disguise, rng);
     game.phase = 'runup';
+    clips.start();
     game.strikeAt = now() + 1.2;
     hint('Watch the run-up, then swipe where you want to dive');
   }
@@ -318,9 +327,18 @@ function settle() {
   else game.extraGoals = (game.extraGoals || 0) + (scored ? 1 : 0);
   if (game.shooterIsMe && game.myKicks.length < 5) game.myKicks.push(quantise(game.kick));
   const good = game.shooterIsMe ? scored : !scored;
-  const word = { goal: 'GOAL!', save: 'SAVED!', miss: 'MISS', post: 'POST!' }[r.outcome];
+  const styles = game.shooterIsMe && scored ? styleOf(game.kick, r.crossing) : [];
+  const earned = recordKick(profile, game.shooterIsMe ? 'shooter' : 'keeper', r.outcome, styles);
+  saveProfile(storage, profile);
+  const STYLE_NAMES = { topCorner: 'Top bins!', curve: 'What a bend!', panenka: 'Panenka!' };
+  const word = styles.length ? STYLE_NAMES[styles[0]] : { goal: 'GOAL!', save: 'SAVED!', miss: 'MISS', post: 'POST!' }[r.outcome];
   banner(word, good);
-  hint(REASONS[r.reason] || '');
+  const reward = earned.xp ? `  +${earned.xp} XP` : '';
+  hint((REASONS[r.reason] || '') + reward + (earned.levelUp ? `  Level ${earned.levelUp}!` : ''));
+  // keep the clip if this is the best moment so far
+  const moment = momentScore({ outcome: r.outcome, playerShooting: game.shooterIsMe, styles, suddenDeath: isSuddenDeath(game.shootout), decisive: winner(game.shootout) !== null });
+  const label = game.shooterIsMe ? word : 'Huge save!';
+  setTimeout(() => clips.stop(moment, label), 1300);
   if (navigator.vibrate) navigator.vibrate(good ? [30, 40, 60] : 25);
   game.phase = 'result';
   setTimeout(nextKick, 1700);
@@ -329,6 +347,19 @@ function settle() {
 function finish(w) {
   game.phase = 'over';
   const won = w === game.playerTeam;
+  if (!game.recorded) {
+    game.recorded = true;
+    recordShootout(profile, won);
+    saveProfile(storage, profile);
+  }
+  const clipBtn = $('btn-clip');
+  clipBtn.hidden = !clips.best;
+  clipBtn.textContent = clips.best ? `Share your best moment: ${clips.best.label}` : '';
+  clipBtn.onclick = async () => {
+    const { text, url } = challengeLink();
+    const how = await shareClip(clips.best, text, url);
+    if (how === 'downloaded') clipBtn.textContent = 'Clip saved';
+  };
   const [a, b] = score(game.shootout);
   const mine = game.playerTeam === 0 ? a : b;
   const theirs = game.playerTeam === 0 ? b : a;
@@ -363,15 +394,23 @@ function extraKick() {
   game.plan = { start: 99, x: 0, y: 1 };
   setCamera(true);
   game.phase = 'aim';
+  clips.start();
   hint(`Challenge kick ${game.myKicks.length + 1} of 5. Swipe up`);
 }
 
-async function shareChallenge() {
-  const scored = game.shootout.kicks[game.playerTeam].slice(0, 5).filter(Boolean).length + (game.extraGoals || 0);
-  const code = encodeChallenge({ nation: teamIndex(game.me.code), scored, seed: (rng.next() * 2 ** 32) >>> 0, kicks: game.myKicks });
+function challengeLink() {
   const base = /^https?:/.test(location.protocol) ? location.origin + location.pathname : PLAY_URL;
-  const url = `${base}#c=${code}`;
-  const text = `I scored ${scored}/5 for ${game.me.name} ${game.me.flag} in Penalty Kings. Can you save them?`;
+  if (game.myKicks.length < 5) return { text: `Penalty Kings: shoot, save, beat your mates. ${game.me.flag}`, url: base };
+  const scored = game.shootout.kicks[game.playerTeam].slice(0, 5).filter(Boolean).length + (game.extraGoals || 0);
+  if (!game.code) game.code = encodeChallenge({ nation: teamIndex(game.me.code), scored, seed: (rng.next() * 2 ** 32) >>> 0, kicks: game.myKicks });
+  return {
+    url: `${base}#c=${game.code}`,
+    text: `I scored ${scored}/5 for ${game.me.name} ${game.me.flag} in Penalty Kings. Can you save them?`,
+  };
+}
+
+async function shareChallenge() {
+  const { text, url } = challengeLink();
   try {
     if (navigator.share) await navigator.share({ title: 'Penalty Kings', text, url });
     else {
@@ -497,4 +536,5 @@ if (challenge) {
 $('btn-primary').textContent = 'Kick off';
 $('btn-primary').onclick = start;
 $('btn-secondary').hidden = true;
+$('btn-clip').hidden = true;
 $('panel').hidden = false;

@@ -37,4 +37,5 @@ html, body { margin: 0; height: 100%; background: #06101f; color: var(--ink); ov
 #panel button { display: block; width: 100%; min-height: 52px; margin-top: 10px; border: 0; border-radius: 14px;
   font-size: 18px; font-weight: 800; color: #06101f; background: var(--gold); cursor: pointer; }
 #panel button.ghost { background: transparent; color: var(--ink); border: 1.5px solid rgba(255,255,255,0.35); }
+#panel button.clip { background: #ffffff; color: #06101f; }
 #panel button[hidden] { display: none; }
