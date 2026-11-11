@@ -768,6 +768,11 @@ export function createStage(canvas) {
       crowdUniforms.uExcite.value = Math.max(crowdUniforms.uExcite.value, level);
     },
     shake(a) { shake = Math.max(shake, a); },
+    /** Low camera beside the post for goal replays. side: -1 / 1 (physics x). */
+    setReplayView(side) {
+      views.replay = { pos: new THREE.Vector3(W(side * 5.5), 0.9, GOAL_Z - 4.2), look: new THREE.Vector3(W(side * -0.5), 1.2, GOAL_Z + 0.3) };
+      setView('replay');
+    },
     /** Glowing target rings on the goal mouth (physics coords, metres). */
     showTargets(list) {
       targets.forEach((t) => scene.remove(t));

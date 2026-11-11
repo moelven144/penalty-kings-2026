@@ -51,6 +51,10 @@ PLAY FOR YOUR NATION
 • A new Daily Challenge every day, the same match for everyone in the world
 • Keep your streak alive, level up and earn coins with every goal and save
 
+ROAD TO GLORY
+• 300 levels across five regions, with three clear stars to earn in each
+• Target practice, bending shots, keeper trials, sudden death and Panenka tests
+
 Plays offline. Made for one thumb.
 
 Penalty Kings is an independent game and is not affiliated with any football federation, league, club or tournament.
@@ -63,6 +67,8 @@ Penalty Kings has been rebuilt from scratch.
 • Challenge friends with a link: they face your exact penalties
 • Share replays of your best goals and saves
 • Daily Challenge with streaks, levels and style bonuses
+• Road to Glory: 300 levels to master
+• Slow-motion replays of your best goals
 • Still 100% free: no ads, nothing to buy
 
 ## Screenshots (ready: `screenshots/v2/`)
@@ -79,7 +85,7 @@ Rendered from the real game. iPhone 6.9" (1320×2868) and iPad 13" (2048×2732),
 
 The `ipad13-*` files go in the iPad 13" slot in the same order.
 
-Later updates add Nation League and Road to Glory screenshots once those screens exist. Don't mention them in the listing before then (App Review guideline 2.3: the listing must match the app).
+Later updates add Nation League and cosmetics-locker screenshots once those screens exist. Don't mention them in the listing before then (App Review guideline 2.3: the listing must match the app).
 
 ## App Preview video (20–30 s, recorded from the game)
 

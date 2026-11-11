@@ -167,6 +167,7 @@ function nextKick() {
 function strike() {
   game.crossing = predictCrossing(game.kick);
   game.sim = initialState(game.kick);
+  game.track = [];
   sfx.kick(game.kick.power);
   sfx.hush();
   game.outcome = null;
@@ -225,7 +226,10 @@ function settle() {
   // keep the clip if this is the best moment so far
   const moment = momentScore({ outcome: r.outcome, playerShooting: game.shooterIsMe, styles, suddenDeath: isSuddenDeath(game.shootout), decisive: game.mode !== 'glory' && winner(game.shootout) !== null });
   const label = game.shooterIsMe ? word : 'Huge save!';
-  setTimeout(() => clips.stop(moment, label), 1300);
+  // a replay-worthy goal keeps recording so the shared clip includes the replay
+  game.pendingClip = null;
+  if (game.shooterIsMe && scored && styles.length && !reducedMotion) game.pendingClip = [moment, label];
+  else setTimeout(() => clips.stop(moment, label), 1300);
   haptic(good ? 'heavy' : 'light');
   const scorer = game.shooterIsMe ? game.me : game.them;
   if (scored) {
@@ -239,7 +243,19 @@ function settle() {
     sfx.groan();
   }
   game.phase = 'result';
-  setTimeout(nextKick, 1700);
+  const replayWorthy = game.shooterIsMe && scored && styles.length && !reducedMotion;
+  setTimeout(replayWorthy ? startReplay : nextKick, replayWorthy ? 1400 : 1700);
+}
+
+// slow-motion replay of a great goal from beside the post
+function startReplay() {
+  if (!game.track || game.track.length < 2) return nextKick();
+  game.phase = 'replay';
+  game.replayT = 0;
+  stage.setReplayView(game.crossing.x >= 0 ? 1 : -1);
+  shooter.root.visible = false;
+  banner('REPLAY', true);
+  hint('');
 }
 
 function finish(w) {
@@ -426,8 +442,25 @@ function frame() {
     }
     if (game.phase === 'flight' && s.t > 3) settle(); // ball stopped short
     stage.setBall(s.p, s.v, s.spin, dt, game.phase === 'flight');
+    if (game.track && game.track.length < 600) game.track.push({ t: s.t, x: s.p.x, y: s.p.y, z: s.p.z, vx: s.v.x, vy: s.v.y, vz: s.v.z, spin: s.spin });
   }
 
+  if (game.phase === 'replay') {
+    game.replayT += realDt * 0.45;
+    const tr = game.track;
+    let i = tr.findIndex((p) => p.t >= game.replayT);
+    if (i < 0) i = tr.length - 1;
+    const p = tr[i];
+    stage.setBall(p, { x: p.vx, y: p.vy, z: p.vz }, p.spin, realDt * 0.45, true);
+    const h = handsAt(game.plan, game.replayT);
+    keeper.dive(h.x - KEEPER_START.x, h.y - KEEPER_START.y, h.progress);
+    if (game.replayT > tr[tr.length - 1].t + 0.25) {
+      game.phase = 'result';
+      game.track = null;
+      if (game.pendingClip) { clips.stop(...game.pendingClip); game.pendingClip = null; }
+      nextKick();
+    }
+  }
   // keeper: ready stance, then the dive plan (time relative to the strike)
   const kt = game.sim ? game.sim.t : t - game.strikeAt;
   if (game.phase === 'aim' || game.phase === 'idle' || (game.phase === 'runup' && kt < game.plan.start)) {
