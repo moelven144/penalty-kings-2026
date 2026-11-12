@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#04070f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Penalty Kings</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <div id="loading"><div class="mark">&#9819;</div><div class="word">PENALTY KINGS</div><div id="loading-note">Building the stadium</div></div>
+  <div id="dev" hidden>
+    <div id="stats"></div>
+    <div class="row" id="shots"></div>
+    <div class="row" id="tiers"></div>
+    <div class="row">
+      <button id="cheer">Crowd: goal</button>
+      <button id="groan">Crowd: calm</button>
+      <button id="bench">Run benchmark</button>
+    </div>
+    <pre id="report" hidden></pre>
+  </div>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

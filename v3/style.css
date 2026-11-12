@@ -1,0 +1,24 @@
+/* Penalty Kings v3 — milestone (a): stage plus a small developer overlay. */
+:root { --ink: #f4f7fb; --muted: rgba(244, 247, 251, 0.66); --glass: rgba(6, 11, 22, 0.72); --line: rgba(255, 255, 255, 0.14); --gold: #ffc933; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: #04070f; color: var(--ink); overflow: hidden; touch-action: none;
+  user-select: none; -webkit-user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
+#stage { position: fixed; inset: 0; display: block; }
+#loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: radial-gradient(120% 80% at 50% 30%, #12234a 0%, #04070f 70%); transition: opacity 0.5s; z-index: 5; }
+#loading.done { opacity: 0; pointer-events: none; }
+#loading .mark { font-size: 64px; line-height: 1; color: var(--gold); }
+#loading .word { font-weight: 900; letter-spacing: 0.22em; font-size: 20px; }
+#loading-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
+#dev { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(4, 7, 15, 0) 0%, rgba(4, 7, 15, 0.86) 28%); display: flex; flex-direction: column; gap: 8px; }
+#stats { font: 600 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); white-space: pre-wrap; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; }
+#dev button { min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--glass);
+  color: var(--ink); font-size: 14px; font-weight: 700; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+#dev button.on { border-color: var(--gold); color: var(--gold); }
+#report { margin: 0; padding: 10px; max-height: 38vh; overflow: auto; border-radius: 12px; background: var(--glass); border: 1px solid var(--line);
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
+
+[hidden] { display: none !important; }
