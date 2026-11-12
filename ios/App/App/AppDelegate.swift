@@ -47,3 +47,48 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
 }
+
+// UIScene lifecycle (required by current iOS SDKs). The window and the Capacitor
+// view controller come from Main.storyboard via the scene manifest in Info.plist.
+// URL opens and user activities arrive on the scene, so they are forwarded to
+// Capacitor here to keep challenge links working.
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+
+    var window: UIWindow?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        // Cold start from a link: hand the launch URL / activity to Capacitor.
+        forward(connectionOptions.urlContexts)
+        for activity in connectionOptions.userActivities {
+            forward(activity)
+        }
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        forward(URLContexts)
+    }
+
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        forward(userActivity)
+    }
+
+    private func forward(_ contexts: Set<UIOpenURLContext>) {
+        for context in contexts {
+            var options: [UIApplication.OpenURLOptionsKey: Any] = [
+                .openInPlace: context.options.openInPlace
+            ]
+            if let source = context.options.sourceApplication {
+                options[.sourceApplication] = source
+            }
+            if let annotation = context.options.annotation {
+                options[.annotation] = annotation
+            }
+            _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: context.url, options: options)
+        }
+    }
+
+    private func forward(_ activity: NSUserActivity) {
+        _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, continue: activity, restorationHandler: { _ in })
+    }
+
+}
