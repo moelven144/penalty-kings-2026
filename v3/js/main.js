@@ -10,7 +10,9 @@ import { createCrowd } from './render/crowd.js';
 import { createCameraRig, SHOT_NAMES, SHOTS } from './render/cameras.js';
 import { autoParams, runAuto } from './dev/auto.js';
 import { createNet } from './render/net.js';
-import { createStriker, createCapsuleKeeper } from './render/standin.js';
+import { createCapsuleKeeper } from './render/standin.js';
+import { loadCharacters, createPlayer } from './render/character.js';
+import { strikerPose, idlePose } from './game/choreo.js';
 import { createShooting } from './game/shooting.js';
 import { haptics } from './game/haptics.js';
 import { standingKeeper } from './core/shot.js';
@@ -53,8 +55,18 @@ window.addEventListener('resize', () => { gfx.resize(); rig.refit(); });
 // ---- play mode (milestone b) or the viewer
 const viewer = params.has('viewer') || (!!auto && auto.mode !== 'play' && !params.has('play'));
 let shooting = null;
-if (!viewer) {
-  const striker = createStriker(scene);
+const charactersReady = viewer ? Promise.resolve(null) : loadCharacters();
+function startPlay(assets) {
+  // the striker: a skinned player posed by game/choreo.js
+  const body = createPlayer(scene, assets, { hair: 1 });
+  body.setKit({ shirt: '#c8102e', shirt2: '#ffffff', shorts: '#ffffff', socks: '#c8102e', pattern: 'plain' });
+  let side = 0;
+  const striker = {
+    pose(t, strikeT) { body.solve(strikerPose(t, strikeT, { approach: 1, side })); },
+    reset() { side = 0; body.solve(strikerPose(0, null, { approach: 1, side: 0 })); },
+    set side(s) { side = s; },
+  };
+  striker.reset();
   const keeperMesh = createCapsuleKeeper(scene, standingKeeper());
   let detail = '';
   const hud = {
@@ -76,6 +88,7 @@ if (!viewer) {
   toggle('t-probe', () => shooting.input.probe, (v) => { shooting.input.probe = v; });
   const views = ['broadcast', 'striker'];
   $('t-view').onclick = () => { rig.set(views[(views.indexOf(rig.shot) + 1) % views.length]); };
+  window.__pk3.body = body;
 }
 
 // ---- frame loop with a rolling frame-time window
@@ -199,7 +212,16 @@ function finishBenchmark() {
 $('bench').onclick = startBenchmark;
 
 // ---- boot: wait for textures, bake reflections, probe the GPU once, then show
-THREE.DefaultLoadingManager.onLoad = () => {
+let booted = false;
+let texturesLoaded = false;
+let characterAssets;
+THREE.DefaultLoadingManager.onLoad = () => { texturesLoaded = true; boot(); };
+charactersReady.then((a) => { characterAssets = a; boot(); });
+function boot() {
+  // everything on disk is in: stadium textures and, in play mode, the character models
+  if (booted || !texturesLoaded || characterAssets === undefined) return;
+  booted = true;
+  if (characterAssets) startPlay(characterAssets);
   gfx.render();
   stadium.bakeEnvironment(gfx.renderer);
   if (needsProbe) {
@@ -215,5 +237,5 @@ THREE.DefaultLoadingManager.onLoad = () => {
   window.__pk3Ready = true;
   requestAnimationFrame((t) => { last = t; frame(t); });
   if (auto) runAuto({ params, gfx, rig, canvas, shooting, runBenchmark: startBenchmark, fps: () => lastFps, shotNames: SHOT_NAMES });
-};
+}
 window.__pk3 = { rig, crowd, gfx, scene, camera, net, ball, SHOTS, get shooting() { return shooting; } };
