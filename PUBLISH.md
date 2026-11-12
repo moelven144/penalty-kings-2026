@@ -8,6 +8,17 @@ Xcode ▸ Settings ▸ Accounts ▸ add the Apple account that has App Store Con
 `PK59WM2GKM`. The upload on 12 Nov 2026 failed only on this: "App Store Connect access for
 PK59WM2GKM is required".
 
+Check it took: the account must be listed in that Accounts window with the team shown under it.
+Signing in to the App Store Connect website or to iCloud is not enough. On the second attempt
+the same day Xcode's account list was still empty.
+
+Instead of an account you can use an App Store Connect API key (App Store Connect ▸ Users and
+Access ▸ Integrations ▸ App Store Connect API, role App Manager):
+
+```bash
+ASC_KEY_PATH=~/Downloads/AuthKey_XXXXXXXXXX.p8 ASC_KEY_ID=XXXXXXXXXX ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx scripts/upload-appstore.sh
+```
+
 ## 2. Upload the build
 
 ```bash

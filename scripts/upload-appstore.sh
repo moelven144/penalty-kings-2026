@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build the release app from v3/ and upload it to App Store Connect.
 # Needs an Apple account with App Store Connect access for team PK59WM2GKM signed in to Xcode
-# (Xcode > Settings > Accounts). The build then appears under TestFlight; nothing is released
+# (Xcode > Settings > Accounts), or an App Store Connect API key (see below). The build then appears under TestFlight; nothing is released
 # to the public until a version is submitted for review in App Store Connect.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -26,5 +26,11 @@ cat > "$OUT/ExportOptions.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
+# Either an account signed in to Xcode, or an App Store Connect API key:
+#   ASC_KEY_PATH=/path/AuthKey_XXXX.p8 ASC_KEY_ID=XXXX ASC_ISSUER_ID=xxxxxxxx-... scripts/upload-appstore.sh
+AUTH=()
+if [ -n "${ASC_KEY_PATH:-}" ]; then
+  AUTH=(-authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+fi
 xcodebuild -exportArchive -archivePath "$OUT/PenaltyKings.xcarchive" -exportOptionsPlist "$OUT/ExportOptions.plist" \
-  -exportPath "$OUT/export" -allowProvisioningUpdates 2>&1 | grep -E "error|rror:|EXPORT (SUCCEEDED|FAILED)|Upload|access" || true
+  -exportPath "$OUT/export" -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"} 2>&1 | grep -E "error|rror:|EXPORT (SUCCEEDED|FAILED)|Upload|access" || true
