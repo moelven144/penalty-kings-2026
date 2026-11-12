@@ -33,6 +33,14 @@ test('the probe moves one step and never lifts a low device', () => {
   assert.equal(refineTier('ultra', 4), 'ultra');
 });
 
+test('the probe steps up only when the next level would use under 60% of the frame', () => {
+  // 7.9 ms on High x 1.25 = 9.9 ms on Ultra, just under 10 ms (60% of 16.7)
+  assert.equal(refineTier('high', 7.9), 'ultra');
+  assert.equal(refineTier('high', 8.5), 'high');
+  assert.equal(refineTier('medium', 6.6), 'high');
+  assert.equal(refineTier('medium', 7), 'medium');
+});
+
 test('render size follows scale and caps the pixel ratio', () => {
   const s = renderSize('high', 390, 844, 3);
   assert.equal(s.width, Math.round(390 * 3 * 0.9));

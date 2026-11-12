@@ -11,7 +11,7 @@
     "serve:v2": "python3 -m http.server 8000",
     "test:v2": "node --test v2/test/*.test.mjs",
     "test:v3": "node --test v3/test/*.test.mjs",
-    "serve:v3": "python3 -m http.server 8000"
+    "serve:v3": "node scripts/dev-server.mjs 8000"
   },
   "dependencies": {
     "@capacitor/cli": "^8.4.0",

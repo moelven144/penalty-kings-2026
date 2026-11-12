@@ -104,7 +104,7 @@ export function createStadium(scene, tier) {
     for (let y = 16; y < h; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
   }, { repeat: [1, 1], anisotropy: aniso });
   roofTex.wrapS = roofTex.wrapT = THREE.RepeatWrapping;
-  const roofUnder = new THREE.MeshStandardMaterial({ map: roofTex, emissiveMap: roofTex, emissive: new THREE.Color(0.5, 0.56, 0.7), roughness: 0.6, metalness: 0.3, side: THREE.DoubleSide });
+  const roofUnder = new THREE.MeshStandardMaterial({ map: roofTex, emissiveMap: roofTex, emissive: new THREE.Color(0.2, 0.23, 0.3), roughness: 0.6, metalness: 0.3, side: THREE.DoubleSide });
   const dark = new THREE.MeshStandardMaterial({ color: '#0b0f17', roughness: 0.7, metalness: 0.4, side: THREE.DoubleSide });
 
   // ---- the bowl
@@ -120,8 +120,8 @@ export function createStadium(scene, tier) {
 
   // ---- roof-edge floodlights: a continuous run of lamps under the inner edge
   const lampCount = 220;
-  const lampGeo = new THREE.BoxGeometry(0.9, 0.22, 0.5);
-  const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(5.5, 5.2, 4.6) }); // HDR: blooms
+  const lampGeo = new THREE.BoxGeometry(0.7, 0.2, 0.45);
+  const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.4, 3.25, 2.95) }); // HDR: blooms, without merging into one white bar
   const lamps = new THREE.InstancedMesh(lampGeo, lampMat, lampCount);
   const m4 = new THREE.Matrix4();
   const q = new THREE.Quaternion();
@@ -143,7 +143,7 @@ export function createStadium(scene, tier) {
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
     uniforms: { uColor: { value: new THREE.Color(1.0, 0.95, 0.84) } },
     vertexShader: 'varying float vH; varying vec3 vN; varying vec3 vV; void main(){ vH = uv.y; vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
-    fragmentShader: 'uniform vec3 uColor; varying float vH; varying vec3 vN; varying vec3 vV; void main(){ float rim = pow(abs(dot(vN, vV)), 1.5); gl_FragColor = vec4(uColor * 0.022 * pow(vH, 1.6) * rim, 1.0); }',
+    fragmentShader: 'uniform vec3 uColor; varying float vH; varying vec3 vN; varying vec3 vV; void main(){ float rim = pow(clamp(abs(dot(normalize(vN), normalize(vV))), 0.0001, 1.0), 1.5); gl_FragColor = vec4(uColor * 0.022 * pow(clamp(vH, 0.0001, 1.0), 1.6) * rim, 1.0); }',
   });
   const rigs = [];
   for (const t of [0.105, 0.395, 0.605, 0.895]) {

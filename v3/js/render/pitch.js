@@ -112,13 +112,21 @@ export function createPitch(scene, tier) {
   spot.receiveShadow = true;
   group.add(spot);
 
-  // ---- grass blades near the camera (the last few metres read as real turf)
+  // ---- grass blades near the camera: small tufts around the spot, so the
+  // foreground has a real silhouette. They shrink to nothing at the edge of the
+  // patch (no visible border) and take the colour of the turf under them.
   let blades = null;
   if (tier.grassBlades > 0) {
     const n = tier.grassBlades;
+    // a tuft: three thin blades leaning apart
+    const P = [];
+    for (const [lean, turn, h] of [[0, 0, 1], [0.45, 2.1, 0.8], [-0.4, 4.2, 0.7]]) {
+      const cx = Math.cos(turn); const sz = Math.sin(turn); const w = 0.0028;
+      P.push(-w * cx, 0, -w * sz, w * cx, 0, w * sz, lean * 0.012 * sz, h, lean * 0.012 * cx);
+    }
     const bladeGeo = new THREE.BufferGeometry();
-    bladeGeo.setAttribute('position', new THREE.Float32BufferAttribute([-0.008, 0, 0, 0.008, 0, 0, 0, 1, 0], 3));
-    bladeGeo.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0], 3));
+    bladeGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    bladeGeo.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(9).fill([0, 1, 0]).flat(), 3));
     const mat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
     const uni = { uTime: { value: 0 } };
     mat.onBeforeCompile = (shader) => {
@@ -128,24 +136,27 @@ export function createPitch(scene, tier) {
         .replace('#include <begin_vertex>', `#include <begin_vertex>
           float tip = position.y;
           float ph = instanceMatrix[3].x * 1.7 + instanceMatrix[3].z * 2.3;
-          transformed.x += tip * tip * 0.012 * sin(uTime * 1.3 + ph);`)
-        .replace('#include <color_vertex>', '#include <color_vertex>\nvColor.rgb *= (0.8 + 0.35 * position.y);');
+          transformed.x += tip * tip * 0.006 * sin(uTime * 1.3 + ph);`)
+        .replace('#include <color_vertex>', '#include <color_vertex>\nvColor.rgb *= (0.8 + 0.4 * position.y);');
     };
     blades = new THREE.InstancedMesh(bladeGeo, mat, n);
     const m4 = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const e = new THREE.Euler();
     const c = new THREE.Color();
+    const smooth = (a, b, v) => { const k = Math.min(1, Math.max(0, (v - a) / (b - a))); return k * k * (3 - 2 * k); };
     for (let i = 0; i < n; i++) {
-      // denser close to the shooting camera, thinning out towards the goal
-      const u = Math.random();
-      const z = 7.5 - Math.pow(u, 0.6) * 13.5;
-      const x = (Math.random() - 0.5) * (9 + (7.5 - z) * 0.9);
-      const h = 0.035 + Math.random() * 0.04;
-      e.set((Math.random() - 0.5) * 0.5, Math.random() * Math.PI, (Math.random() - 0.5) * 0.5);
-      m4.compose(new THREE.Vector3(x, 0, z), q.setFromEuler(e), new THREE.Vector3(1 + Math.random(), h, 1));
+      // the patch runs from behind the shooting camera to a few metres past the spot
+      const z = 6.5 - Math.pow(Math.random(), 0.75) * 10.5;
+      const halfW = 2.6 + (6.5 - z) * 0.42;
+      const x = (Math.random() * 2 - 1) * halfW;
+      const fade = smooth(-4.0, -1.2, z) * (1 - smooth(halfW * 0.6, halfW, Math.abs(x)));
+      const h = (0.022 + Math.random() * 0.02) * (0.15 + 0.85 * fade);
+      e.set((Math.random() - 0.5) * 0.3, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.3);
+      const wide = 1 + Math.random() * 0.8;
+      m4.compose(new THREE.Vector3(x, 0, z), q.setFromEuler(e), new THREE.Vector3(wide, h, wide));
       blades.setMatrixAt(i, m4);
-      c.copy(bandAt(z) ? GRASS_LIGHT : GRASS_DARK).multiplyScalar(1.3 + Math.random() * 0.45);
+      c.copy(bandAt(z) ? GRASS_LIGHT : GRASS_DARK).multiplyScalar(0.92 + Math.random() * 0.3);
       blades.setColorAt(i, c);
     }
     blades.receiveShadow = true;

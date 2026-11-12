@@ -8,6 +8,7 @@ import { createStadium } from './render/stadium.js';
 import { createPitch, createGoal, createBall } from './render/pitch.js';
 import { createCrowd } from './render/crowd.js';
 import { createCameraRig, SHOT_NAMES } from './render/cameras.js';
+import { autoParams, runAuto } from './dev/auto.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -21,9 +22,10 @@ const device = {
   isMobile: /Mobi|Android|iPhone|iPad/.test(navigator.userAgent),
 };
 const saved = storage && storage.getItem('pk3_tier');
-const forced = TIER_ORDER.includes(params.get('tier')) ? params.get('tier') : null;
+const auto = autoParams(params); // development-only automatic device runs
+const forced = (auto && auto.tier) || (TIER_ORDER.includes(params.get('tier')) ? params.get('tier') : null);
 let tierName = forced || (TIER_ORDER.includes(saved) ? saved : guessTier(device));
-const needsProbe = !forced && !saved;
+const needsProbe = !forced && !saved && !auto;
 const tier = TIERS[tierName];
 
 // ---- build the world
@@ -49,6 +51,7 @@ let last = performance.now();
 let clock = 0;
 let secondAcc = 0;
 let secondFrames = 0;
+let lastFps = 0;
 const watchdog = makeWatchdog(tier.targetFps);
 function frame(now) {
   const dtMs = now - last;
@@ -70,7 +73,8 @@ function frame(now) {
   secondFrames++;
   if (secondAcc >= 1000) {
     const fps = (secondFrames * 1000) / secondAcc;
-    if (!bench && !params.has('nowatchdog') && watchdog.sample(fps)) gfx.setDynamicScale(watchdog.scale);
+    lastFps = fps;
+    if (!bench && !auto && !params.has('nowatchdog') && watchdog.sample(fps)) gfx.setDynamicScale(watchdog.scale);
     updateStats(fps);
     secondAcc = 0;
     secondFrames = 0;
@@ -83,7 +87,7 @@ function updateStats(fps) {
   const info = gfx.renderer.info.render;
   $('stats').textContent =
     `${gfx.tier.label} · ${fps.toFixed(0)} fps · ${gfx.size.width}x${gfx.size.height}` +
-    ` · ${info.calls} draws · ${(info.triangles / 1000).toFixed(0)}k tris · crowd ${crowd.count.toLocaleString()}`;
+    ` · ${info.calls} draws · ${(info.triangles / 1000).toFixed(0)}k tris · crowd ${crowd.count.toLocaleString()} (${crowd.meshCount.toLocaleString()} 3D)`;
 }
 
 // ---- developer overlay
@@ -118,12 +122,13 @@ function startBenchmark() {
   rig.set('orbit');
   buildOverlay();
   gfx.setDynamicScale(1);
-  bench = { start: performance.now(), duration: 10000, samples: [] };
   $('bench').textContent = 'Running 10 s';
   $('report').hidden = true;
+  return new Promise((done) => { bench = { start: performance.now(), duration: 10000, samples: [], done }; });
 }
 function finishBenchmark() {
   const s = bench.samples.slice(5).sort((a, b) => a - b);
+  const done = bench.done;
   bench = null;
   const avg = s.reduce((a, b) => a + b, 0) / s.length;
   const pct = (p) => s[Math.min(s.length - 1, Math.floor(s.length * p))];
@@ -139,7 +144,7 @@ function finishBenchmark() {
     `gpu frame cost: ${gpuMs.toFixed(1)} ms`,
     `render size: ${gfx.size.width}x${gfx.size.height} (screen ${device.width}x${device.height} @${device.dpr}x)`,
     `draw calls: ${info.calls}, triangles: ${info.triangles}`,
-    `crowd: ${crowd.count}`,
+    `crowd: ${crowd.count} (${crowd.meshCount} as 3D people)`,
     `gpu: ${gfx.gpuName()}`,
     `ua: ${navigator.userAgent}`,
   ];
@@ -148,6 +153,7 @@ function finishBenchmark() {
   $('bench').textContent = 'Run benchmark';
   if (navigator.clipboard) navigator.clipboard.writeText(lines.join('\n')).catch(() => {});
   window.__pk3Report = lines;
+  done(lines);
 }
 $('bench').onclick = startBenchmark;
 
@@ -166,5 +172,6 @@ THREE.DefaultLoadingManager.onLoad = () => {
   $('loading').classList.add('done');
   window.__pk3Ready = true;
   requestAnimationFrame((t) => { last = t; frame(t); });
+  if (auto) runAuto({ params, gfx, rig, canvas, runBenchmark: startBenchmark, fps: () => lastFps, shotNames: SHOT_NAMES });
 };
 window.__pk3 = { rig, crowd, gfx, scene, camera };

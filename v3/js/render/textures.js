@@ -135,13 +135,16 @@ export function crowdAtlas() {
     const cw = w / 4;
     const person = (i, armsUp, lean) => {
       const cx = i * cw + cw / 2 + lean;
-      g.fillStyle = '#ffffff';
+      // lit from above: shoulders bright, lap in the shadow of the row in front
+      const shade = g.createLinearGradient(0, h * 0.4, 0, h);
+      shade.addColorStop(0, '#ffffff'); shade.addColorStop(0.45, '#c9c9c9'); shade.addColorStop(1, '#6e6e6e');
+      g.fillStyle = shade;
       // torso
       g.beginPath();
       g.moveTo(cx - 19, h); g.lineTo(cx - 21, h * 0.52); g.quadraticCurveTo(cx, h * 0.38, cx + 21, h * 0.52); g.lineTo(cx + 19, h);
       g.fill();
       // arms
-      g.lineWidth = 9; g.lineCap = 'round'; g.strokeStyle = '#ffffff';
+      g.lineWidth = 9; g.lineCap = 'round'; g.strokeStyle = '#e2e2e2';
       g.beginPath();
       if (armsUp === 2) { g.moveTo(cx - 19, h * 0.55); g.lineTo(cx - 25, h * 0.2); g.moveTo(cx + 19, h * 0.55); g.lineTo(cx + 25, h * 0.2); }
       else if (armsUp === 1) { g.moveTo(cx + 19, h * 0.55); g.lineTo(cx + 27, h * 0.22); g.moveTo(cx - 19, h * 0.56); g.lineTo(cx - 23, h * 0.86); }

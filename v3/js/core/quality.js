@@ -5,7 +5,7 @@ export const TIER_ORDER = ['low', 'medium', 'high', 'ultra'];
 /** Per-tier render settings. Starting points; tuned from real-device reports. */
 export const TIERS = {
   low: {
-    label: 'Low', targetFps: 30, renderScale: 0.6, maxPixelRatio: 2, msaa: 0,
+    label: 'Low', targetFps: 30, renderScale: 0.6, maxPixelRatio: 2, msaa: 2, // MSAA is close to free on Apple's tile-based GPUs
     shadowSize: 1024, softShadows: false,
     bloom: true, bloomScale: 0.25, bloomStrength: 0.22,
     crowdDensity: 0.4, crowdMeshes: 0, flags: 12,
@@ -55,16 +55,29 @@ export function guessTier(d) {
 }
 
 /**
- * Refine a tier from a measured GPU frame cost at that tier.
+ * How much heavier each level is than the one below it, measured on a real
+ * iPhone (see v3/README.md, "Measured on devices"). Index i = cost of
+ * TIER_ORDER[i] divided by the cost of TIER_ORDER[i - 1].
+ */
+export const STEP_COST = [1, 1.5, 1.5, 1.25];
+
+/**
+ * Refine a tier from a measured frame cost at that tier (CPU + GPU, finished).
+ * Steps down when the frame does not fit comfortably; steps up when the next
+ * level, at its measured relative cost, would still use under 60% of the frame
+ * (the rest is headroom for gameplay, replays and a warm phone).
  * Moves at most one step, and never upward on a device guessed 'low'.
  * @param tier current tier
- * @param frameMs measured milliseconds to render one frame (GPU finished)
+ * @param frameMs measured milliseconds to render one frame
  */
 export function refineTier(tier, frameMs) {
   const i = TIER_ORDER.indexOf(tier);
   const budget = 1000 / TIERS[tier].targetFps;
   if (frameMs > budget * 0.85 && i > 0) return TIER_ORDER[i - 1];
-  if (frameMs < budget * 0.45 && i > 0 && i < TIER_ORDER.length - 1) return TIER_ORDER[i + 1];
+  if (i > 0 && i < TIER_ORDER.length - 1) {
+    const next = TIER_ORDER[i + 1];
+    if (frameMs * STEP_COST[i + 1] < (1000 / TIERS[next].targetFps) * 0.6) return next;
+  }
   return tier;
 }
 
