@@ -23,3 +23,6 @@ xcuserdata/
 
 # Simulator build output
 ios/build-sim/
+
+# Release archive and export
+ios/build-release/

@@ -2,16 +2,17 @@
 
 The console-style rebuild. Plan: `REBUILD_PLAN.md`. Assets and licences: `ASSETS.md`.
 
-**Status: milestone (b) — shooting feel.** Touch the ball, the striker runs up, swipe at the goal and let go
-as the standing foot plants. Real ball physics (drag, spin, post and bar, turf), a cloth net, haptics and a
-touch-latency readout. The striker and keeper are stand-in mannequins until milestone (d); there is no sound
-until milestone (e). `?viewer` opens the milestone (a) viewer (camera shots, quality levels, benchmark).
+**Status: version 3.0, build 7.** The whole game is in: quick shootout, Daily Challenge, Road to Glory,
+challenge links, tutorial, settings, share clips. Built and archived for the App Store; the upload is
+waiting for an Apple account to be signed in to Xcode (see `../PUBLISH.md`). What was and was not
+verified, and where it falls short of the plan: `RULES_CHECK.md`.
 
 ## Run
 
 ```bash
 npm run serve:v3     # then open http://localhost:8000/v3/
-npm run test:v3
+npm run test:v3      # 99 tests
+npm run test:v2      # the old game's 29 tests (legacy/v2)
 ```
 
 On an iPhone on the same Wi-Fi: `http://<your Mac's IP>:8000/v3/`.
@@ -21,6 +22,9 @@ On a connected iPhone, inside the real app (this is what the numbers below come 
 ```bash
 scripts/ios-device.sh                                  # build, install, launch
 scripts/ios-device.sh "auto=bench&next=shots,soak"     # benchmark every level, screenshots, 4-minute heat run
+scripts/ios-device.sh "auto=play&tier=high&debug"     # plays a shootout and three Road to Glory levels by itself
+node scripts/store-shots.mjs                           # the twelve raw store captures (needs the dev server running)
+scripts/upload-appstore.sh                             # release archive and upload to App Store Connect
 python3 scripts/collect-shots.py <log> .tmp/device/shots   # rebuild the screenshots from the log
 ```
 
@@ -38,11 +42,15 @@ URL options: `?tier=low|medium|high|ultra` (force a quality level), `?shot=broad
 | `js/core/gesture.js` | The shooting gesture rules from section 5 of the plan, one function per rule (pure, tested) |
 | `js/core/shot.js` | Shot types (normal, chip, driven, curler), stand-in keeper colliders, old-link kick conversion |
 | `js/core/legacy/`, `keeper.js`, `rules.js`, `challenge.js`, `profile.js`, `modes.js`, `teams.js`, `rng.js` | v2 logic carried over with its tests; rewired in milestones (c) and (f) |
-| `js/game/shooting.js` | The shooting loop: run-up, strike, flight, result |
+| `js/core/save.js` | The keeper: dive waypoints, body capsules the ball hits, catches, reflex (pure, tested) |
+| `js/core/ai.js` | Computer striker and keeper: four levels, honest cues, read window, balance (pure, tested) |
+| `js/game/match.js` | One kick with a person or the computer on either side; live outcome; slow-motion replay |
+| `js/game/app.js` | Menus, shootouts, Daily Challenge, Road to Glory, challenge links, tutorial, settings, clips |
+| `js/game/choreo.js` | Hand-authored joint targets: run-up, strike, cues, dives, reactions |
 | `js/game/input.js` | Pointer input with coalesced samples, finger trail, latency measurement and flash probe |
-| `js/game/haptics.js` | Haptic patterns (Capacitor plugin in the app) |
-| `js/render/net.js` | Cloth net (Verlet), pinned to the frame, pushed by the ball |
-| `js/render/standin.js` | Stand-in striker (run-up timed to the plant) and keeper |
+| `js/game/haptics.js`, `audio.js`, `clip.js` | Haptic patterns; synthesised sound and the clip recorder (both from v2) |
+| `js/render/character.js` | Skinned players: model loading, kit shader, two-bone IK |
+| `js/render/net.js` | Cloth net (Verlet), pinned to the frame, carried by the ball |
 | `js/dev/auto.js` | Development-only automatic device runs |
 | `js/core/quality.js` | Quality levels, device guess, GPU-probe refinement, frame-rate watchdog (pure, tested) |
 | `js/render/layout.js` | World dimensions and the stand ring geometry (pure, tested) |
@@ -84,6 +92,15 @@ frame with the GPU forced to finish (CPU + GPU), so 16.7 ms is the limit for 60 
   900 / 1,800 / 3,000 instead of the plan's 2,000 / 5,000 / 8,000.
 - Not measured: any other iPhone. Low and Medium exist for the iPhone 11 to 13, and those numbers are
   still estimates. The first-launch probe decides on those phones; it needs a run on one to confirm.
+
+### The finished game, same phone, same day
+
+- The game played itself through a quick shootout and Road to Glory levels 1 to 3 in the app on High:
+  **59.7 fps average over 10,411 frames, 1% low 45.5, 1.4% of frames over 20 ms.** The hitches have not
+  been traced; they are likely scene changes (kick start, replay camera cut).
+- Share-clip recording works in the app (a 437 KB clip was recorded); haptics are native.
+- The release build (3.0, build 7) was archived and installed, but the phone was locked, so that exact
+  build was never launched. All play testing was on debug builds of the same web code.
 
 ### Gameplay cameras and milestone (b), same phone, same day
 
