@@ -1,6 +1,6 @@
-// Penalty Kings v3 — milestone (b): shooting practice in the stadium.
-// ?viewer opens the milestone (a) viewer instead (camera shots, quality levels,
-// benchmark), which is also what the automatic device runs use.
+// Penalty Kings v3 — entry point: builds the stadium, loads the players and
+// starts the game (game/app.js). ?viewer opens the stadium viewer instead
+// (camera shots, quality levels, benchmark), which the automatic device runs use.
 import * as THREE from 'three';
 import { TIERS, TIER_ORDER, guessTier, refineTier, makeWatchdog } from './core/quality.js';
 import { createRenderer } from './render/renderer.js';
@@ -10,12 +10,10 @@ import { createCrowd } from './render/crowd.js';
 import { createCameraRig, SHOT_NAMES, SHOTS } from './render/cameras.js';
 import { autoParams, runAuto } from './dev/auto.js';
 import { createNet } from './render/net.js';
-import { createCapsuleKeeper } from './render/standin.js';
 import { loadCharacters, createPlayer } from './render/character.js';
-import { strikerPose, idlePose } from './game/choreo.js';
-import { createShooting } from './game/shooting.js';
-import { haptics } from './game/haptics.js';
-import { standingKeeper } from './core/shot.js';
+import { createMatch, SHOT_TYPES } from './game/match.js';
+import { createApp } from './game/app.js';
+import { sfx } from './game/audio.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -52,43 +50,20 @@ rig.set(params.get('shot') && SHOT_NAMES.includes(params.get('shot')) ? params.g
 
 window.addEventListener('resize', () => { gfx.resize(); rig.refit(); });
 
-// ---- play mode (milestone b) or the viewer
+// ---- the game, or the viewer (?viewer: camera shots, quality levels, benchmark)
 const viewer = params.has('viewer') || (!!auto && auto.mode !== 'play' && !params.has('play'));
-let shooting = null;
+let match = null;
+let app = null;
 const charactersReady = viewer ? Promise.resolve(null) : loadCharacters();
-function startPlay(assets) {
-  // the striker: a skinned player posed by game/choreo.js
-  const body = createPlayer(scene, assets, { hair: 1 });
-  body.setKit({ shirt: '#c8102e', shirt2: '#ffffff', shorts: '#ffffff', socks: '#c8102e', pattern: 'plain' });
-  let side = 0;
-  const striker = {
-    pose(t, strikeT) { body.solve(strikerPose(t, strikeT, { approach: 1, side })); },
-    reset() { side = 0; body.solve(strikerPose(0, null, { approach: 1, side: 0 })); },
-    set side(s) { side = s; },
-  };
-  striker.reset();
-  const keeperMesh = createCapsuleKeeper(scene, standingKeeper());
-  let detail = '';
-  const hud = {
-    result(text, kind) { $('result').textContent = text; $('result').className = kind || ''; },
-    detail(text) { detail = text; $('detail').textContent = text; },
-    lastDetail: () => detail,
-    hint(text) { $('hint').textContent = text; },
-  };
-  shooting = createShooting({ canvas, scene, camera, rig, gfx, ball, crowd, net, striker, keeperMesh, hud });
-  const toggle = (id, get, set, label) => {
-    const b = $(id);
-    const paint = () => { b.classList.toggle('on', !!get()); if (label) b.textContent = label(get()); };
-    b.onclick = () => { set(!get()); paint(); };
-    paint();
-  };
-  toggle('t-keeper', () => shooting.keeperOn, (v) => { shooting.keeperOn = v; }, (on) => `Keeper: ${on ? 'on' : 'off'}`);
-  toggle('t-aid', () => shooting.aidOn, (v) => { shooting.aidOn = v; });
-  toggle('t-haptics', () => haptics.enabled, (v) => { haptics.enabled = v; if (v) haptics.play('strike'); });
-  toggle('t-probe', () => shooting.input.probe, (v) => { shooting.input.probe = v; });
-  const views = ['broadcast', 'striker'];
-  $('t-view').onclick = () => { rig.set(views[(views.indexOf(rig.shot) + 1) % views.length]); };
-  window.__pk3.body = body;
+function startGame(assets) {
+  const striker = createPlayer(scene, assets, { hair: 1 });
+  const keeper = createPlayer(scene, assets, { keeper: true, hair: 0 });
+  match = createMatch({
+    canvas, scene, camera, rig, ball, crowd, net, striker, keeper, sfx,
+    onHint: (t) => { $('hint').textContent = t; },
+    onStrike: (s) => { $('sub').textContent = `${SHOT_TYPES[s.type].label} · ${s.kmh} km/h · ${{ perfect: 'Perfect strike', clean: 'Clean strike', rushed: 'Rushed', scuffed: 'Scuffed' }[s.grade]}`; },
+  });
+  app = createApp({ canvas, match, crowd, rig, striker, keeper, gfx, tierName, storage: storage || { getItem: () => null, setItem: () => {} }, params });
 }
 
 // ---- frame loop with a rolling frame-time window
@@ -113,10 +88,10 @@ function frame(now) {
   pitch.update(dt, clock);
   crowd.update(dt);
   rig.update(dt, clock);
-  if (shooting) shooting.update(now, dt);
+  if (match) match.update(now, dt);
   else { ball.rotation.y += dt * 0.2; net.update(dt, null); }
   gfx.render();
-  if (shooting) shooting.input.render(gfx.renderer, performance.now());
+  if (match) { match.input.render(gfx.renderer, performance.now()); app.tick(); }
 
   secondAcc += dtMs;
   secondFrames++;
@@ -125,11 +100,6 @@ function frame(now) {
     lastFps = fps;
     if (!bench && !auto && !params.has('nowatchdog') && watchdog.sample(fps)) gfx.setDynamicScale(watchdog.scale);
     updateStats(fps);
-    if (shooting) {
-      const l = shooting.input.latency();
-      const f = (v) => (v ? `${v.avg.toFixed(0)} ms (worst ${v.worst.toFixed(0)})` : 'touch the screen');
-      $('latency').textContent = `${gfx.tier.label} · ${fps.toFixed(0)} fps\ntouch to code: ${f(l.handler)}\ntouch to frame sent: ${f(l.frame)}\nhaptics: ${haptics.native ? 'native' : haptics.available ? 'vibration' : 'not on this device'}`;
-    }
     secondAcc = 0;
     secondFrames = 0;
   }
@@ -221,7 +191,7 @@ function boot() {
   // everything on disk is in: stadium textures and, in play mode, the character models
   if (booted || !texturesLoaded || characterAssets === undefined) return;
   booted = true;
-  if (characterAssets) startPlay(characterAssets);
+  if (characterAssets) startGame(characterAssets);
   gfx.render();
   stadium.bakeEnvironment(gfx.renderer);
   if (needsProbe) {
@@ -232,10 +202,11 @@ function boot() {
   }
   buildOverlay();
   $('dev').hidden = params.has('clean') || !viewer;
-  $('hud').hidden = viewer || params.has('clean');
+  if (params.has('shots')) document.body.classList.add('shots');
   $('loading').classList.add('done');
   window.__pk3Ready = true;
   requestAnimationFrame((t) => { last = t; frame(t); });
-  if (auto) runAuto({ params, gfx, rig, canvas, shooting, runBenchmark: startBenchmark, fps: () => lastFps, shotNames: SHOT_NAMES });
+  if (app) app.boot();
+  if (auto) runAuto({ params, gfx, rig, canvas, match, app, runBenchmark: startBenchmark, fps: () => lastFps, shotNames: SHOT_NAMES });
 }
-window.__pk3 = { rig, crowd, gfx, scene, camera, net, ball, SHOTS, get shooting() { return shooting; } };
+window.__pk3 = { rig, crowd, gfx, scene, camera, net, ball, SHOTS, get match() { return match; }, get app() { return app; } };

@@ -2,7 +2,8 @@
 // Everything is EARNED. There is nothing to buy, no ads and no currency
 // for sale (decision: 100% free). Stored on-device only.
 
-const KEY = 'pk_profile_v2';
+const KEY = 'pk_profile_v3';
+const V2_KEY = 'pk_profile_v2';
 const V1_KEY = 'pwc2026_save_v1';
 const V1_DAILY_KEY = 'pk_daily_v1';
 
@@ -74,6 +75,7 @@ export function sanitise(raw) {
   if (isObj(raw.settings)) {
     p.settings.muted = !!raw.settings.muted;
     p.settings.haptics = raw.settings.haptics !== false;
+    p.settings.aimAid = raw.settings.aimAid !== false;
   }
   p.onboarded = !!raw.onboarded;
   return p;
@@ -110,7 +112,10 @@ export function loadProfile(storage) {
       return null;
     }
   };
-  const v2 = read(KEY);
+  const v3 = read(KEY);
+  if (v3) return sanitise(v3);
+  // first launch of v3 on a phone that had v2: XP, coins, stats, streak, stars, nation and settings carry over
+  const v2 = read(V2_KEY);
   if (v2) return sanitise(v2);
   const v1 = read(V1_KEY);
   if (v1) return migrateV1(v1, read(V1_DAILY_KEY));

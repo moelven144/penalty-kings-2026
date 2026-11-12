@@ -48,7 +48,7 @@ export function createShootInput(canvas, handlers) {
     if (!cancelled && t > last.t) active.samples.push({ ...unit(e), t });
     const samples = active.samples;
     active = null;
-    if (cancelled) handlers.onCancel(); else handlers.onEnd(samples);
+    if (cancelled) handlers.onCancel(); else handlers.onEnd(samples, e.timeStamp);
   };
   canvas.addEventListener('pointerup', (e) => end(e, false));
   canvas.addEventListener('pointercancel', (e) => end(e, true));

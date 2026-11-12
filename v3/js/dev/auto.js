@@ -144,83 +144,71 @@ export async function runAuto(ctx) {
 }
 
 /**
- * Scripted swipes, built backwards from where each should point on the goal
- * plane, sent through the same code a finger uses (readSwipe -> launch -> ball).
- * This checks the build on the device; it does not replace a human judging the feel.
+ * Plays whole games through the real code on the device: a quick shootout, then Road to Glory
+ * levels 1 to 3 (score, targets, keep). The "player" swipes at random spots when shooting and
+ * dives at the ball when keeping. This checks that the build works and how fast it runs; it does
+ * not replace a person judging the feel.
  */
 async function playScript(ctx, tag) {
-  const { shooting, gfx, canvas } = ctx;
+  const { match, app, gfx, canvas } = ctx;
   const THREE = await import('three');
   const cam = window.__pk3.camera;
-  const toScreen = (x, y) => {
-    const v = new THREE.Vector3(x, y, -11).project(cam);
-    return { x: ((v.x + 1) / 2) * (innerWidth / innerHeight), y: (1 - v.y) / 2 };
-  };
-  // name, aim on the goal plane (m), swipe speed (screen heights/s), bulge, release time (s), rest (s), keeper
-  const script = [
-    ['centre, perfect timing', 0, 1.2, 2.0, 0, 0.9, 0, false],
-    ['top right corner, clean', 3.0, 2.0, 2.4, 0, 0.98, 0, false],
-    ['low left, rushed', -3.0, 0.4, 2.2, 0, 0.45, 0, false],
-    ['curler to the left post', -2.6, 1.4, 2.3, 0.2, 0.9, 0, false],
-    ['chip down the middle', 0.3, 1.9, 1.1, 0, 0.9, 0.14, false],
-    ['driven low right', 2.6, 0.35, 3.0, 0, 0.92, 0, false],
-    ['blast at the top corner', 3.1, 2.2, 3.6, 0, 0.9, 0, false],
-    ['wide right', 5.0, 1.0, 2.0, 0, 0.9, 0, false],
-    ['at the keeper', 0, 1.2, 2.2, 0, 0.9, 0, true],
-    ['past the keeper', 3.0, 0.5, 2.4, 0, 0.9, 0, true],
-  ];
-  const results = [];
-  const nosnap = new URLSearchParams(location.search).has('nosnap'); // measure frame rate without the screenshots
-  const deltas = [];
-  let lastFrame = 0; let recording = true;
+  const nosnap = new URLSearchParams(location.search).has('nosnap');
+  const deltas = []; let lastFrame = 0; let recording = true;
   const rec = (t) => { if (lastFrame) deltas.push(t - lastFrame); lastFrame = t; if (recording) requestAnimationFrame(rec); };
   requestAnimationFrame(rec);
-  for (const [name, ax, ay, speed, bulge, releaseT, rest, keeper] of script) {
-    shooting.keeperOn = keeper;
-    const a = shooting.ballOnScreen();
-    const b = toScreen(ax, ay);
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
-    const dur = len / speed;
-    const start = releaseT - rest - dur;
-    const pts = [{ x: a.x, y: a.y, t: 0 }, { x: a.x, y: a.y, t: Math.max(0.001, start) }];
-    const nx = -(b.y - a.y) / len; const ny = (b.x - a.x) / len; // sideways to the swipe
-    for (let i = 1; i <= 30; i++) {
-      const k = i / 30; const off = bulge * len * Math.sin(Math.PI * k);
-      pts.push({ x: a.x + (b.x - a.x) * k - nx * off, y: a.y + (b.y - a.y) * k - ny * off, t: start + dur * k });
-    }
-    for (let t = 1 / 120; t <= rest + 1e-9; t += 1 / 120) pts.push({ x: b.x, y: b.y, t: start + dur + t });
-    shooting.autoShoot(pts);
-    let deepest = 0; let snapped = false; let clothMax = 0; let prevDepth = 0;
-    const netObj = window.__pk3.net;
+  let shots = 0;
+  const snap = async (name) => {
+    if (nosnap) return;
+    gfx.render();
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.85));
+    if (blob) await post(`/__shot?name=${tag}${name}`, blob, 'image/jpeg');
+  };
+  async function drive(label, until) {
+    const log = [];
     const t0 = performance.now();
-    while (shooting.state !== 'idle' && performance.now() - t0 < 9000) {
+    let seen = null;
+    while (!until() && performance.now() - t0 < 150000) {
       await frames(1);
-      const sim = shooting.sim;
-      if (sim && sim.netDepth > deepest) deepest = sim.netDepth;
-      clothMax = Math.max(clothMax, netObj.backBulge());
-      // one picture per kick: just after the moment that decided it
-      const ev = sim && sim.events.find((e) => ['goal', 'post', 'bar', 'out', 'body', 'hands', 'legs', 'head'].includes(e.type));
-      // goals are pictured when the net is stretched furthest; everything else just after it is decided
-      const peak = sim && sim.scored && sim.netDepth > 0.1 && sim.netDepth < prevDepth;
-      prevDepth = sim ? sim.netDepth : 0;
-      if (!nosnap && !snapped && ev && (peak || sim.t > ev.t + (sim.scored ? 0.5 : 0.06))) {
-        snapped = true;
-        gfx.render();
-        const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.85));
-        if (blob) await post(`/__shot?name=${tag}play_${results.length}`, blob, 'image/jpeg');
+      const k = match.kick;
+      if (!k) continue;
+      if (match.state === 'aim') {
+        const b = match.ballOnScreen();
+        const v = new THREE.Vector3((Math.random() * 2 - 1) * 2.9, 0.3 + Math.random() * 1.7, -11).project(cam);
+        const e = { x: ((v.x + 1) / 2) * (innerWidth / innerHeight), y: (1 - v.y) / 2 };
+        const bend = Math.random() < 0.3 ? (Math.random() - 0.5) * 0.5 : 0;
+        const len = Math.hypot(e.x - b.x, e.y - b.y); const nx = -(e.y - b.y) / len; const ny = (e.x - b.x) / len;
+        const pts = [{ x: b.x, y: b.y, t: 0 }, { x: b.x, y: b.y, t: 0.7 }];
+        for (let i = 1; i <= 24; i++) { const q = i / 24; const off = bend * len * Math.sin(Math.PI * q); pts.push({ x: b.x + (e.x - b.x) * q + nx * off, y: b.y + (e.y - b.y) * q + ny * off, t: 0.7 + 0.2 * q }); }
+        match.autoShoot(pts);
+      } else if (k.keeperHuman && !k.dived && match.state === 'flight' && k.sim.t > 0.04) {
+        const c = k.crossAtKeeper || { x: 0, y: 1 };
+        match.autoDive({ x: c.x * (Math.random() < 0.7 ? 1 : -1), y: c.y }, k.sim.t);
       }
+      if (k.result && seen !== k) {
+        seen = k;
+        log.push(`${k.shooterHuman ? 'me' : 'cpu'}:${k.result.outcome}/${k.result.reason}`);
+        if (shots < 8) { await wait(120); await snap(`${label}_${shots++}`); }
+      }
+      if (match.state === 'replay' && shots < 12 && !k.snappedReplay) { k.snappedReplay = true; await wait(900); await snap(`${label}_replay${shots++}`); }
     }
-    const s = shooting.lastShot; const o = shooting.lastOutcome;
-    results.push({ name, type: s.type, grade: s.timing.grade, power: +s.power.toFixed(2), curve: +s.curve.toFixed(2),
-      aim: [+s.aim.x.toFixed(2), +s.aim.y.toFixed(2)], outcome: o.outcome, reason: o.reason,
-      crossing: o.crossing && [+o.crossing.x.toFixed(2), +o.crossing.y.toFixed(2), +o.crossing.t.toFixed(2)], net: +deepest.toFixed(2), cloth: +clothMax.toFixed(2) });
-    await post('/__report', JSON.stringify({ kind: 'play', tag, ...results[results.length - 1] }), 'application/json');
-    await wait(300);
+    return log;
+  }
+  await wait(500);
+  await snap('menu');
+  app.start('quick');
+  const quick = await drive('quick', () => app.game.phase === 'over');
+  await wait(600); await snap('quick_end');
+  await post('/__report', JSON.stringify({ kind: 'play', tag, mode: 'quick', title: document.getElementById('panel-title').textContent, kicks: quick }), 'application/json');
+  for (const n of [1, 2, 3]) {
+    app.startLevel(n);
+    const log = await drive(`glory${n}`, () => app.game.phase === 'over');
+    await wait(400);
+    await post('/__report', JSON.stringify({ kind: 'play', tag, mode: `glory ${n} (${app.game.level.type})`, title: document.getElementById('panel-title').textContent, kicks: log }), 'application/json');
   }
   recording = false;
   deltas.sort((x, y) => x - y);
   const avg = deltas.reduce((x, y) => x + y, 0) / deltas.length;
   const rate = { fps: +(1000 / avg).toFixed(1), low1: +(1000 / deltas[Math.floor(deltas.length * 0.99)]).toFixed(1), over20ms: deltas.filter((x) => x > 20).length, frames: deltas.length };
-  await wait(2500);
-  await post('/__report', JSON.stringify({ kind: 'play-done', tag, snapshots: !nosnap, rate, netAsleep: !window.__pk3.net.awake, clothAtRest: +window.__pk3.net.backBulge().toFixed(3), fps: +ctx.fps().toFixed(1), frameMs: +gfx.measureFrameMs(6).toFixed(2) }), 'application/json');
+  await post('/__report', JSON.stringify({ kind: 'play-done', tag, tier: gfx.tierName, snapshots: !nosnap, rate }), 'application/json');
 }

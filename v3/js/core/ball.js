@@ -206,23 +206,23 @@ export function simulate(launch, obstacles = null) {
     if (!crossing && pz < SPOT_DISTANCE && s.p.z >= SPOT_DISTANCE) crossing = { x: s.p.x, y: s.p.y, t: s.t };
     if (s.scored && s.t > s.events.find((e) => e.type === 'goal').t + 0.05) break;
   }
-  const first = (type) => s.events.find((e) => e.type === type);
+  return { ...classify(s, crossing), crossing, events: s.events, state: s };
+}
+
+/**
+ * What happened, from a ball's event list (used by simulate and by a flight stepped live).
+ * @returns {{outcome:'goal'|'post'|'save'|'miss', reason:string}}
+ */
+export function classify(s, crossing) {
   const wood = s.events.find((e) => e.type === 'post' || e.type === 'bar');
-  const body = obstacles ? s.events.find((e) => OBSTACLE_PARTS.includes(e.type)) : null;
-  const goal = first('goal');
-  let outcome; let reason;
+  const body = s.events.find((e) => OBSTACLE_PARTS.includes(e.type));
+  const goal = s.events.find((e) => e.type === 'goal');
   if (goal) {
-    outcome = 'goal';
-    reason = wood && wood.t < goal.t ? `in-off-${wood.type}` : body && body.t < goal.t ? `off-${body.type}` : 'clean';
-  } else if (body) {
-    outcome = 'save'; reason = body.type;
-  } else if (wood) {
-    outcome = 'post'; reason = wood.type;
-  } else {
-    outcome = 'miss';
-    reason = !crossing ? 'short' : crossing.y >= GOAL_HEIGHT ? 'over' : 'wide';
+    return { outcome: 'goal', reason: wood && wood.t < goal.t ? `in-off-${wood.type}` : body && body.t < goal.t ? `off-${body.type}` : 'clean' };
   }
-  return { outcome, reason, crossing, events: s.events, state: s };
+  if (body) return { outcome: 'save', reason: body.held ? 'held' : body.type };
+  if (wood) return { outcome: 'post', reason: wood.type };
+  return { outcome: 'miss', reason: !crossing ? 'short' : crossing.y >= GOAL_HEIGHT ? 'over' : 'wide' };
 }
 
 /** Free flight (no turf, frame or net) to the goal plane. Used to solve the aim. */

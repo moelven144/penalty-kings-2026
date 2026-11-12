@@ -1,4 +1,5 @@
-// Penalty Kings v2 — challenge links.
+// Penalty Kings v3 — challenge links. Version 1 (v2 game) links still decode;
+// version 2 carries the v3 shot: where it was aimed, power, curve, shot type and strike grade.
 // "I scored 4/5 for Norway. Can you save them?"
 // The link carries the five kicks themselves, so no server is needed:
 // the friend keeps against exactly the same shots on any device.
@@ -85,4 +86,73 @@ export function challengeUrl(base, c) {
 export function readChallengeFromLocation(hash) {
   const m = /[#&]c=([A-Za-z0-9_-]+)/.exec(hash || '');
   return m ? decodeChallenge(m[1]) : null;
+}
+
+// ---------------------------------------------------------------- version 2 (v3 game)
+const VERSION2 = 2;
+const R2 = { x: [-6, 6], y: [0, 5], power: [0, 1], curve: [-1, 1] };
+const TYPES2 = ['normal', 'chip', 'driven', 'curler'];
+const GRADES2 = ['perfect', 'clean', 'rushed', 'scuffed'];
+
+/**
+ * @param c {{nation:number, scored:number, seed:number, kicks:Array<{target:{x,y}, power, curve, type, grade}>}}
+ *   target = where the ball was sent (after scatter), so the friend faces exactly the same five kicks
+ */
+export function encodeChallenge2(c) {
+  if (c.kicks.length !== 5) throw new Error('a challenge has exactly 5 kicks');
+  const bytes = [VERSION2, c.nation & 0xff, c.scored & 0xff];
+  const seed = c.seed >>> 0;
+  bytes.push(seed >>> 24, (seed >>> 16) & 0xff, (seed >>> 8) & 0xff, seed & 0xff);
+  for (const k of c.kicks) {
+    bytes.push(toByte(k.target.x, R2.x), toByte(k.target.y, R2.y), toByte(k.power, R2.power), toByte(k.curve, R2.curve));
+    bytes.push((Math.max(0, TYPES2.indexOf(k.type)) << 2) | Math.max(0, GRADES2.indexOf(k.grade)));
+  }
+  bytes.push(checksum(bytes));
+  return toBase64Url(bytes);
+}
+
+/** The shot a version 2 link will reproduce (what the sender should also record, so both sides match). */
+export function quantise2(k) {
+  return {
+    target: { x: fromByte(toByte(k.target.x, R2.x), R2.x), y: fromByte(toByte(k.target.y, R2.y), R2.y) },
+    power: fromByte(toByte(k.power, R2.power), R2.power),
+    curve: fromByte(toByte(k.curve, R2.curve), R2.curve),
+    type: TYPES2.includes(k.type) ? k.type : 'normal',
+    grade: GRADES2.includes(k.grade) ? k.grade : 'clean',
+  };
+}
+
+/**
+ * Decode a link of either version.
+ * @returns {{version, nation, scored, seed, kicks}} with v3 shots in kicks (version 1 kicks keep their
+ *   old fields too, as `legacy`), or {error:'damaged'|'newer'} for a link that cannot be played
+ */
+export function decodeAny(code) {
+  let bytes;
+  try { bytes = fromBase64Url(code); } catch { return { error: 'damaged' }; }
+  if (!bytes.length) return { error: 'damaged' };
+  if (bytes[0] === VERSION) {
+    const c = decodeChallenge(code);
+    if (!c) return { error: 'damaged' };
+    return { version: 1, nation: c.nation, scored: c.scored, seed: c.seed, kicks: c.kicks.map((k) => ({ legacy: k })) };
+  }
+  if (bytes[0] !== VERSION2) return { error: bytes[0] > VERSION2 ? 'newer' : 'damaged' };
+  if (bytes.length !== 33 || checksum(bytes.slice(0, 32)) !== bytes[32]) return { error: 'damaged' };
+  const seed = ((bytes[3] << 24) | (bytes[4] << 16) | (bytes[5] << 8) | bytes[6]) >>> 0;
+  const kicks = [];
+  for (let i = 0; i < 5; i++) {
+    const o = 7 + i * 5;
+    kicks.push({
+      target: { x: fromByte(bytes[o], R2.x), y: fromByte(bytes[o + 1], R2.y) },
+      power: fromByte(bytes[o + 2], R2.power), curve: fromByte(bytes[o + 3], R2.curve),
+      type: TYPES2[(bytes[o + 4] >> 2) & 3], grade: GRADES2[bytes[o + 4] & 3],
+    });
+  }
+  return { version: 2, nation: bytes[1], scored: bytes[2], seed, kicks };
+}
+
+/** Read `#c=...` from a URL hash: null if there is none, otherwise decodeAny()'s answer. */
+export function readAnyChallenge(hash) {
+  const m = /[#&]c=([A-Za-z0-9_-]+)/.exec(hash || '');
+  return m ? decodeAny(m[1]) : null;
 }

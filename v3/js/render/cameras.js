@@ -12,6 +12,10 @@ const deg = THREE.MathUtils.degToRad;
 export const SHOTS = {
   // behind and right of the striker: the whole run-up, the ball and the goal in one frame
   broadcast: { pos: V(1.15, 2.35, 6.6), look: V(-0.1, 2.0, GOAL_Z), fov: 34, hfov: 31 },
+  // keeping: raised behind the striker so the whole goal fits in portrait and a swipe goes where it looks
+  keep: { pos: V(0.3, 3.5, 9.4), look: V(0, 1.1, GOAL_Z), fov: 30, hfov: 34 },
+  replayL: { pos: V(-5.4, 0.85, GOAL_Z + 2.6), look: V(0.2, 1.2, GOAL_Z - 0.6), fov: 30, hfov: 40 },
+  replayR: { pos: V(5.4, 0.85, GOAL_Z + 2.6), look: V(-0.2, 1.2, GOAL_Z - 0.6), fov: 30, hfov: 40 },
   striker: { pos: V(0.6, 1.72, 3.3), look: V(0, 2.6, GOAL_Z), fov: 46, hfov: 34 },
   keeper: { pos: V(0, 1.6, GOAL_Z - 1.7), look: V(0, 1.0, 0), fov: 52, hfov: 70 }, // inside the goal, in front of the back net
   side: { pos: V(10.5, 1.15, GOAL_Z + 5.2), look: V(-0.5, 1.2, GOAL_Z + 0.4), fov: 30, hfov: 34 },
