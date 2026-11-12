@@ -80,8 +80,11 @@ Rendered from the real game. iPhone 6.9" (1320×2868) and iPad 13" (2048×2732),
 | 1 | `iphone69-01-flight.png` | SWIPE. BEND. SCORE. |
 | 2 | `iphone69-02-save.png` | THEN DIVE TO SAVE IT |
 | 3 | `iphone69-03-end.png` | SEND IT TO YOUR MATES |
-| 4 | `iphone69-04-party.png` | 5 KICKS. 1 LINK. NO EXCUSES. |
-| 5 | `iphone69-05-title.png` | 100% FREE. NO ADS. NOTHING TO BUY. |
+| 4 | `iphone69-04-party.png` | RELIVE IT IN SLOW MOTION |
+| 5 | `iphone69-05-map.png` | 300 LEVELS: ROAD TO GLORY |
+| 6 | `iphone69-06-title.png` | 100% FREE. NO ADS. NOTHING TO BUY. |
+
+Regenerate with `python3 scripts/store_screenshots.py <folder of raw captures>`.
 
 The `ipad13-*` files go in the iPad 13" slot in the same order.
 

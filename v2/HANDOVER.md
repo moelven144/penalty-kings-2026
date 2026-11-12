@@ -5,7 +5,9 @@ the night stadium, crowd, floodlights, net bulge, ball trail, jointed players
 with animations, confetti, bloom, slow motion, synthesised sound, title screen,
 icon and store screenshots. The next session should **improve** it, not start
 over. Also done since: Road to Glory screens, the first-launch tutorial, a mute
-button and slow-motion goal replays. Best wins, in order: better player models and animation (they're still
+button and slow-motion goal replays. On 2026-11-12 the players were rebuilt (shaped torso, knees and elbows, shirt
+numbers, better strike/dive/run poses) and waving flags were added to the stands.
+Best wins, in order: better player models and animation (they're still
 simple primitives), a goal replay camera, a richer crowd (flags, scarves, a
 second tier), the vertical clip frame, and swipe-feel tuning on a real iPhone.
 

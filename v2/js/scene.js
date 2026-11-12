@@ -35,23 +35,24 @@ function canvasTexture(w, h, draw, opts = {}) {
 const SKIN = ['#f1c7a5', '#d9a07a', '#b97b52', '#8d5a3b', '#5e3b26'];
 const HAIR = ['#1b1410', '#3a2618', '#6b4423', '#c9a15a', '#0d0d0d'];
 
-/** A stylised footballer with jointed limbs and simple procedural poses. */
+/** A stylised footballer: shaped torso, jointed knees and elbows, shirt number. */
 class Figure {
-  constructor(scene, { keeper = false } = {}) {
+  constructor(scene, { keeper = false, number = 10 } = {}) {
     this.keeper = keeper;
     this.root = new THREE.Group();
     this.body = new THREE.Group(); // rotates for dives, sits at the hips
     this.root.add(this.body);
     const mat = (color, rough = 0.65) => new THREE.MeshStandardMaterial({ color, roughness: rough });
-    this.shirt = mat('#2563eb');
-    this.shorts = mat('#ffffff');
-    this.socks = mat('#2563eb');
+    this.shirt = mat('#2563eb', 0.7);
+    this.shorts = mat('#ffffff', 0.7);
+    this.socks = mat('#2563eb', 0.75);
     this.skin = mat(SKIN[Math.floor(Math.random() * SKIN.length)], 0.8);
-    const hair = mat(HAIR[Math.floor(Math.random() * HAIR.length)], 0.9);
-    const boots = mat('#111111', 0.4);
-    const gloves = mat('#e5f4ff', 0.5);
+    const hair = mat(HAIR[Math.floor(Math.random() * HAIR.length)], 0.95);
+    const boots = mat(keeper ? '#111111' : ['#111111', '#f8fafc', '#f43f5e', '#22d3ee'][Math.floor(Math.random() * 4)], 0.35);
+    const gloves = mat('#f8fafc', 0.5);
+    const dark = mat('#0b0f19', 0.6);
 
-    const add = (parent, geo, material, x, y, z) => {
+    const add = (parent, geo, material, x = 0, y = 0, z = 0) => {
       const m = new THREE.Mesh(geo, material);
       m.position.set(x, y, z);
       m.castShadow = true;
@@ -59,41 +60,83 @@ class Figure {
       return m;
     };
     this.body.position.y = 0.95;
-    // torso, slightly tapered
-    const torso = add(this.body, new THREE.CylinderGeometry(0.24, 0.19, 0.62, 14), this.shirt, 0, 0.36, 0);
-    torso.scale.z = 0.62;
-    add(this.body, new THREE.CylinderGeometry(0.2, 0.22, 0.2, 14), this.shorts, 0, 0.02, 0).scale.z = 0.7;
-    add(this.body, new THREE.CylinderGeometry(0.055, 0.06, 0.1, 10), this.skin, 0, 0.72, 0);
-    const head = add(this.body, new THREE.SphereGeometry(0.115, 18, 14), this.skin, 0, 0.86, 0);
-    head.scale.set(0.95, 1.08, 1);
-    const cap = add(this.body, new THREE.SphereGeometry(0.12, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2.1), hair, 0, 0.885, -0.008);
-    cap.scale.set(1, 0.9, 1.04);
 
-    const limb = (parent, x, y, len, r, material, endMaterial, endR) => {
-      const pivot = new THREE.Group();
-      pivot.position.set(x, y, 0);
-      parent.add(pivot);
-      add(pivot, new THREE.CapsuleGeometry(r, len, 4, 10), material, 0, -len / 2 - r * 0.4, 0);
-      if (endMaterial) add(pivot, new THREE.SphereGeometry(endR, 10, 8), endMaterial, 0, -len - r * 1.2, 0);
-      return pivot;
-    };
-    this.armL = limb(this.body, 0.29, 0.6, 0.5, 0.058, this.shirt, keeper ? gloves : this.skin, keeper ? 0.085 : 0.05);
-    this.armR = limb(this.body, -0.29, 0.6, 0.5, 0.058, this.shirt, keeper ? gloves : this.skin, keeper ? 0.085 : 0.05);
-    this.legL = limb(this.body, 0.11, -0.05, 0.72, 0.075, this.socks, null);
-    this.legR = limb(this.body, -0.11, -0.05, 0.72, 0.075, this.socks, null);
-    for (const leg of [this.legL, this.legR]) {
-      add(leg, new THREE.CapsuleGeometry(0.078, 0.22, 4, 8), this.skin, 0, -0.2, 0); // thigh skin above socks
-      const boot = add(leg, new THREE.BoxGeometry(0.11, 0.07, 0.24), boots, 0, -0.87, 0.04);
-      boot.castShadow = true;
+    // torso: a lathe profile from waist to shoulders, flattened front to back
+    const profile = [[0.0, 0.0], [0.17, 0.0], [0.185, 0.1], [0.2, 0.26], [0.235, 0.42], [0.25, 0.52], [0.21, 0.6], [0.1, 0.64], [0.0, 0.64]]
+      .map(([r, y]) => new THREE.Vector2(r, y));
+    const torso = add(this.body, new THREE.LatheGeometry(profile, 20), this.shirt, 0, 0.08, 0);
+    torso.scale.z = 0.6;
+    // collar and shoulders
+    add(this.body, new THREE.TorusGeometry(0.07, 0.016, 8, 18), dark, 0, 0.715, 0).rotation.x = Math.PI / 2;
+    for (const sx of [-1, 1]) add(this.body, new THREE.SphereGeometry(0.085, 12, 10), this.shirt, sx * 0.24, 0.6, 0).scale.set(1.1, 0.9, 0.9);
+    // shorts
+    const hips = add(this.body, new THREE.CylinderGeometry(0.19, 0.21, 0.2, 18), this.shorts, 0, 0.0, 0);
+    hips.scale.z = 0.68;
+    // shirt number on the back
+    const numTex = canvasTexture(128, 128, (g, w, h) => {
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = '#ffffff';
+      g.font = '900 104px Arial Black, Arial, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(String(number), w / 2, h / 2 + 6);
+    });
+    this.numberMat = new THREE.MeshBasicMaterial({ map: numTex, transparent: true, depthWrite: false, toneMapped: false });
+    const num = add(this.body, new THREE.PlaneGeometry(0.24, 0.24), this.numberMat, 0, 0.42, -0.142);
+    num.rotation.y = Math.PI;
+    num.castShadow = false;
+
+    // head: neck, skull, hair, ears and eyes
+    this.head = new THREE.Group();
+    this.head.position.set(0, 0.74, 0);
+    this.body.add(this.head);
+    add(this.head, new THREE.CylinderGeometry(0.05, 0.058, 0.1, 10), this.skin, 0, 0.0, 0);
+    add(this.head, new THREE.SphereGeometry(0.112, 20, 16), this.skin, 0, 0.13, 0).scale.set(0.93, 1.1, 1);
+    const cap = add(this.head, new THREE.SphereGeometry(0.118, 18, 12, 0, Math.PI * 2, 0, Math.PI / 1.9), hair, 0, 0.15, -0.012);
+    cap.scale.set(0.97, 1.02, 1.05);
+    for (const sx of [-1, 1]) {
+      add(this.head, new THREE.SphereGeometry(0.022, 8, 6), this.skin, sx * 0.105, 0.125, 0);
+      add(this.head, new THREE.SphereGeometry(0.013, 8, 6), dark, sx * 0.04, 0.145, 0.103).castShadow = false;
     }
+
+    // two-segment limbs: [upper pivot] -> [lower pivot at the joint]
+    const limb = (x, y, upLen, upR, upMat, lowLen, lowR, lowMat) => {
+      const upper = new THREE.Group();
+      upper.position.set(x, y, 0);
+      this.body.add(upper);
+      add(upper, new THREE.CapsuleGeometry(upR, upLen - upR, 4, 10), upMat, 0, -upLen / 2, 0);
+      const lower = new THREE.Group();
+      lower.position.set(0, -upLen, 0);
+      upper.add(lower);
+      add(lower, new THREE.SphereGeometry(Math.max(upR, lowR) * 0.98, 10, 8), lowMat, 0, 0, 0); // the joint
+      add(lower, new THREE.CapsuleGeometry(lowR, lowLen - lowR, 4, 10), lowMat, 0, -lowLen / 2, 0);
+      return [upper, lower];
+    };
+    const sleeve = keeper ? this.shirt : this.skin; // keepers wear long sleeves
+    [this.armL, this.elbowL] = limb(0.285, 0.6, 0.28, 0.056, this.shirt, 0.27, 0.046, sleeve);
+    [this.armR, this.elbowR] = limb(-0.285, 0.6, 0.28, 0.056, this.shirt, 0.27, 0.046, sleeve);
+    for (const e of [this.elbowL, this.elbowR]) {
+      const hand = add(e, new THREE.SphereGeometry(keeper ? 0.082 : 0.05, 12, 10), keeper ? gloves : this.skin, 0, -0.3, 0);
+      if (keeper) hand.scale.set(0.9, 1.15, 0.6);
+    }
+    [this.legL, this.kneeL] = limb(0.105, -0.07, 0.42, 0.088, this.skin, 0.4, 0.068, this.socks);
+    [this.legR, this.kneeR] = limb(-0.105, -0.07, 0.42, 0.088, this.skin, 0.4, 0.068, this.socks);
+    for (const [leg, knee] of [[this.legL, this.kneeL], [this.legR, this.kneeR]]) {
+      add(leg, new THREE.CapsuleGeometry(0.1, 0.12, 4, 10), this.shorts, 0, -0.1, 0); // shorts leg
+      const boot = add(knee, new THREE.CapsuleGeometry(0.052, 0.15, 4, 8), boots, 0, -0.425, 0.045);
+      boot.rotation.x = Math.PI / 2;
+    }
+    this.joints = [this.armL, this.armR, this.legL, this.legR, this.elbowL, this.elbowR, this.kneeL, this.kneeR, this.head];
     scene.add(this.root);
-    this.t = 0;
   }
 
   setKit(shirt, shorts, socks = shirt) {
     this.shirt.color.set(shirt);
     this.shorts.color.set(shorts);
     this.socks.color.set(socks);
+    const c = this.shirt.color;
+    const lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+    this.numberMat.color.set(lum > 0.45 ? '#111827' : '#ffffff');
   }
 
   setOpacity(o) {
@@ -109,60 +152,78 @@ class Figure {
   reset() {
     this.body.rotation.set(0, 0, 0);
     this.body.position.set(0, 0.95, 0);
-    for (const l of [this.armL, this.armR, this.legL, this.legR]) l.rotation.set(0, 0, 0);
+    for (const j of this.joints) j.rotation.set(0, 0, 0);
   }
 
   idle(t) {
     this.reset();
-    this.body.position.y = 0.95 + Math.sin(t * 2.2) * 0.01;
-    this.armL.rotation.z = 0.12;
-    this.armR.rotation.z = -0.12;
+    this.body.position.y = 0.95 + Math.sin(t * 2.2) * 0.008;
+    this.armL.rotation.z = 0.14;
+    this.armR.rotation.z = -0.14;
+    this.elbowL.rotation.x = this.elbowR.rotation.x = -0.25;
+    this.head.rotation.y = Math.sin(t * 0.8) * 0.15;
   }
 
-  /** Keeper ready stance: knees bent, arms out, bouncing on toes. */
+  /** Keeper ready stance: crouched, arms wide, bouncing on the toes. */
   ready(t) {
     this.reset();
-    const bob = Math.abs(Math.sin(t * 5)) * 0.04;
-    this.body.position.y = 0.86 + bob;
-    this.body.rotation.x = 0.18;
-    this.legL.rotation.x = -0.35;
-    this.legR.rotation.x = -0.35;
-    this.legL.rotation.z = 0.12;
-    this.legR.rotation.z = -0.12;
-    this.armL.rotation.z = 0.9;
-    this.armR.rotation.z = -0.9;
-    this.armL.rotation.x = this.armR.rotation.x = -0.5;
+    const bob = Math.abs(Math.sin(t * 5)) * 0.035;
+    this.body.position.y = 0.84 + bob;
+    this.body.rotation.x = 0.22;
+    for (const [leg, knee, s] of [[this.legL, this.kneeL, 1], [this.legR, this.kneeR, -1]]) {
+      leg.rotation.x = -0.62;
+      leg.rotation.z = s * 0.2;
+      knee.rotation.x = 0.85;
+    }
+    this.armL.rotation.z = 0.95 + Math.sin(t * 5) * 0.05;
+    this.armR.rotation.z = -0.95 - Math.sin(t * 5) * 0.05;
+    this.armL.rotation.x = this.armR.rotation.x = -0.35;
+    this.elbowL.rotation.x = this.elbowR.rotation.x = -0.7;
+    this.head.rotation.x = -0.15;
   }
 
   /** Running gait, phase in radians. */
   run(phase, lean = 0) {
     this.reset();
     const s = Math.sin(phase);
-    this.body.position.y = 0.95 + Math.abs(Math.cos(phase)) * 0.05;
-    this.body.rotation.x = 0.12;
+    const c = Math.cos(phase);
+    this.body.position.y = 0.94 + Math.abs(c) * 0.05;
+    this.body.rotation.x = 0.16;
     this.body.rotation.z = lean;
-    this.legL.rotation.x = s * 0.8;
-    this.legR.rotation.x = -s * 0.8;
-    this.armL.rotation.x = -s * 0.7;
-    this.armR.rotation.x = s * 0.7;
-    this.armL.rotation.z = 0.15;
-    this.armR.rotation.z = -0.15;
+    this.legL.rotation.x = s * 0.85;
+    this.legR.rotation.x = -s * 0.85;
+    this.kneeL.rotation.x = 0.25 + Math.max(0, c) * 1.25; // heel flicks up as the leg recovers
+    this.kneeR.rotation.x = 0.25 + Math.max(0, -c) * 1.25;
+    this.armL.rotation.x = -s * 0.8;
+    this.armR.rotation.x = s * 0.8;
+    this.armL.rotation.z = 0.12;
+    this.armR.rotation.z = -0.12;
+    this.elbowL.rotation.x = this.elbowR.rotation.x = -1.25;
   }
 
-  /** Strike: f 0..1, plant then swing the right leg through. */
+  /** Strike: f 0..1. Plant the left foot, cock the right leg, whip it through. */
   strike(f) {
     this.reset();
-    const swing = f < 0.4 ? -1.1 * (f / 0.4) : -1.1 + 2.6 * Math.min(1, (f - 0.4) / 0.35);
-    this.legR.rotation.x = swing;
-    this.legL.rotation.x = 0.15;
-    this.body.rotation.x = -0.15 + 0.3 * f;
-    this.armL.rotation.z = 0.9;
-    this.armR.rotation.z = -0.5;
+    const back = Math.min(1, f / 0.4);
+    const through = THREE.MathUtils.clamp((f - 0.4) / 0.3, 0, 1);
+    this.legR.rotation.x = 0.95 * back - 2.25 * through;
+    this.kneeR.rotation.x = 1.5 * back * (1 - through) + 0.1;
+    this.legL.rotation.x = 0.1;
+    this.kneeL.rotation.x = 0.3;
+    this.body.position.y = 0.92;
+    this.body.rotation.x = 0.2 - 0.38 * through;
+    this.body.rotation.y = 0.35 * back - 0.6 * through;
+    this.armL.rotation.z = 1.25; // balance arm out
+    this.armL.rotation.x = 0.4 - 0.8 * through;
+    this.armR.rotation.z = -0.45;
+    this.armR.rotation.x = -0.5 + 0.9 * through;
+    this.elbowL.rotation.x = -0.3;
+    this.elbowR.rotation.x = -0.5;
   }
 
   /**
    * Dive towards render-space (dx, dy) from the keeper's start, progress 0..1.
-   * The whole body tips over sideways with the arms reaching past the head.
+   * The whole body tips over sideways with both arms reaching past the head.
    */
   dive(dx, dy, progress) {
     this.reset();
@@ -170,32 +231,45 @@ class Figure {
     const side = Math.sign(dx) || 1;
     const reach = Math.min(1, Math.abs(dx) / 2.6);
     const high = THREE.MathUtils.clamp((dy + 0.4) / 1.6, 0, 1);
-    const tilt = side * p * (0.6 + 0.9 * reach) * (1 - 0.35 * high);
+    const tilt = side * p * (0.55 + 1.0 * reach) * (1 - 0.3 * high);
     this.body.rotation.z = -tilt;
     this.body.position.x = dx * p * 0.62;
     this.body.position.y = 0.95 + (dy * 0.5 - 0.2 * reach) * p;
-    const up = 2.6 * p;
-    this.armL.rotation.z = side > 0 ? up * 0.5 + 0.4 : up;
-    this.armR.rotation.z = side > 0 ? -up : -(up * 0.5 + 0.4);
-    this.legL.rotation.z = 0.25 * p;
-    this.legR.rotation.z = -0.25 * p;
-    this.legL.rotation.x = -0.3 * p;
+    const up = 2.75 * p;
+    this.armL.rotation.z = side > 0 ? up * 0.62 + 0.3 : up;
+    this.armR.rotation.z = side > 0 ? -up : -(up * 0.62 + 0.3);
+    // the trailing leg kicks up and bends, the leading leg pushes off straight
+    const lead = side > 0 ? [this.legR, this.kneeR] : [this.legL, this.kneeL];
+    const trail = side > 0 ? [this.legL, this.kneeL] : [this.legR, this.kneeR];
+    lead[0].rotation.z = -side * 0.15 * p;
+    trail[0].rotation.z = side * 0.55 * p;
+    trail[0].rotation.x = -0.4 * p;
+    trail[1].rotation.x = 0.9 * p;
+    this.head.rotation.z = -side * 0.25 * p;
   }
 
   celebrate(t) {
     this.reset();
-    const jump = Math.max(0, Math.sin(t * 7)) * 0.18;
+    const jump = Math.max(0, Math.sin(t * 7)) * 0.2;
     this.body.position.y = 0.95 + jump;
-    this.armL.rotation.z = 2.7 + Math.sin(t * 14) * 0.15;
-    this.armR.rotation.z = -2.7 - Math.sin(t * 14) * 0.15;
-    this.legL.rotation.x = -jump;
+    this.armL.rotation.z = 2.6 + Math.sin(t * 14) * 0.15;
+    this.armR.rotation.z = -2.6 - Math.sin(t * 14) * 0.15;
+    this.elbowL.rotation.x = this.elbowR.rotation.x = -0.35;
+    this.kneeL.rotation.x = this.kneeR.rotation.x = jump * 3;
+    this.legL.rotation.x = this.legR.rotation.x = -jump * 1.2;
+    this.head.rotation.x = -0.3;
   }
 
+  /** Hands on head, slumped. */
   dejected() {
     this.reset();
-    this.body.rotation.x = 0.35;
-    this.armL.rotation.x = this.armR.rotation.x = -0.2;
-    this.body.position.y = 0.9;
+    this.body.rotation.x = 0.25;
+    this.body.position.y = 0.93;
+    this.head.rotation.x = 0.45;
+    this.armL.rotation.z = 2.3;
+    this.armR.rotation.z = -2.3;
+    this.elbowL.rotation.z = 1.7;
+    this.elbowR.rotation.z = -1.7;
   }
 }
 
@@ -463,6 +537,39 @@ export function createStage(canvas) {
   fanGeo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phases, 1));
   crowd.instanceMatrix.needsUpdate = true;
   scene.add(crowd);
+
+  // big waving flags held up in the stands, in the two nations' colours
+  const flagUniforms = { uTime: crowdUniforms.uTime };
+  const flags = [];
+  const flagGeo = new THREE.PlaneGeometry(2.6, 1.6, 14, 6);
+  flagGeo.translate(1.3, 0, 0); // pivot on the pole
+  const poleMat = new THREE.MeshStandardMaterial({ color: '#d1d5db', roughness: 0.5 });
+  for (let i = 0; i < 26; i++) {
+    const f = crowdSpots[Math.floor(Math.random() * crowdSpots.length)];
+    const mat = new THREE.ShaderMaterial({
+      side: THREE.DoubleSide,
+      uniforms: { uTime: flagUniforms.uTime, uA: { value: new THREE.Color('#ffffff') }, uB: { value: new THREE.Color('#ff0000') }, uPhase: { value: Math.random() * 6.28 } },
+      vertexShader: `uniform float uTime; uniform float uPhase; varying vec2 vUv; varying float vShade;
+        void main(){ vUv = uv; vec3 p = position;
+          float w = sin(p.x * 2.6 - uTime * 5.0 + uPhase) * 0.16 * (p.x / 2.6);
+          p.z += w; p.y += w * 0.35; vShade = 0.82 + w * 1.4;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
+      fragmentShader: `uniform vec3 uA; uniform vec3 uB; varying vec2 vUv; varying float vShade;
+        void main(){ vec3 c = vUv.y > 0.5 ? uA : uB; gl_FragColor = vec4(c * vShade, 1.0); }`,
+    });
+    const g = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 3.4, 6), poleMat);
+    pole.position.y = 1.7;
+    const cloth = new THREE.Mesh(flagGeo, mat);
+    cloth.position.y = 2.55;
+    g.add(pole, cloth);
+    g.position.copy(f.p);
+    g.rotation.y = f.facing + rand(-0.5, 0.5);
+    g.rotation.z = rand(-0.2, 0.2);
+    g.userData = { behindShooter: f.p.z < -10, base: g.rotation.z, phase: Math.random() * 6 };
+    scene.add(g);
+    flags.push({ g, mat });
+  }
   const paintCrowd = (home, away) => {
     const c = new THREE.Color();
     const neutral = ['#e5e7eb', '#111827', '#374151', '#9ca3af', '#7c2d12'];
@@ -477,6 +584,11 @@ export function createStage(canvas) {
       crowd.setColorAt(i, c);
     }
     crowd.instanceColor.needsUpdate = true;
+    for (const { g, mat } of flags) {
+      const t = g.userData.behindShooter ? away : home;
+      mat.uniforms.uA.value.set(t.c1);
+      mat.uniforms.uB.value.set(t.c2);
+    }
   };
 
   // phone lights twinkling in the stands
@@ -625,7 +737,7 @@ export function createStage(canvas) {
   const targets = [];
 
   // ---- figures
-  const keeper = new Figure(scene, { keeper: true });
+  const keeper = new Figure(scene, { keeper: true, number: 1 });
   const shooter = new Figure(scene);
 
   // ---- post-processing: bloom for the floodlights
@@ -673,6 +785,7 @@ export function createStage(canvas) {
     crowdUniforms.uTime.value = clock;
     crowdUniforms.uExcite.value = Math.max(0, crowdUniforms.uExcite.value - dt * 0.35);
     adTex.offset.x = (adTex.offset.x + dt * 0.03) % 1;
+    for (const { g } of flags) g.rotation.z = g.userData.base + Math.sin(clock * (1.4 + crowdUniforms.uExcite.value * 5.0) + g.userData.phase) * (0.18 + crowdUniforms.uExcite.value * 0.25);
     phoneMat.opacity = 0.55 + 0.35 * Math.sin(clock * 3.1);
 
     // net spring

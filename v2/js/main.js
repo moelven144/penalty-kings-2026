@@ -304,6 +304,7 @@ function startReplay() {
 
 function finish(w) {
   game.phase = 'over';
+  setCamera(true); // back to the main view (a replay may have moved the camera)
   const won = w === game.playerTeam;
   let dailyLine = '';
   if (!game.recorded) {
@@ -615,6 +616,7 @@ function gloryNextKick() {
 
 function gloryFinish() {
   game.phase = 'over';
+  setCamera(true);
   keeper.root.visible = true;
   stage.showTargets([]);
   const L = game.level;
@@ -686,6 +688,8 @@ function titleScreen() {
   const primary = $('btn-primary');
   const daily = $('btn-clip');
   const nation = $('btn-secondary');
+  primary.hidden = false;
+  $('btn-glory').hidden = true;
   if (challenge) {
     const them = TEAMS[challenge.nation] || TEAMS[0];
     $('panel-title').textContent = `${them.flag} ${them.name} challenges you`;

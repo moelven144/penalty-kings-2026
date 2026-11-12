@@ -56,12 +56,12 @@ body.shots #hint { display: none; }
 .level-map { max-height: 52vh; overflow-y: auto; margin: 0 -8px 8px; padding: 0 8px; text-align: left; }
 .level-map h3 { margin: 14px 0 8px; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
 .level-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.lvl { min-height: 56px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
+#panel button.lvl { width: auto; margin: 0; min-height: 56px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
   color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px; }
-.lvl b { font-size: 16px; }
-.lvl i { font-style: normal; font-size: 11px; color: var(--gold); letter-spacing: 1px; }
-.lvl.current { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,204,51,0.35); }
-.lvl.locked { opacity: 0.35; }
+#panel button.lvl b { font-size: 16px; }
+#panel button.lvl i { font-style: normal; font-size: 11px; color: var(--gold); letter-spacing: 1px; }
+#panel button.lvl.current { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,204,51,0.35); }
+#panel button.lvl.locked { opacity: 0.35; }
 .star-line { display: block; text-align: left; margin: 6px 0; color: var(--muted); }
 .star-line.got { color: var(--gold); font-weight: 700; }
 /* onboarding */
