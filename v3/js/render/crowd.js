@@ -132,7 +132,7 @@ export function createCrowd(scene, tier) {
   const p = new THREE.Vector3();
   const s = new THREE.Vector3();
   /** Build one instanced set from a slice of the seat list. */
-  const build = (geo, mat, from, to, faceOut) => {
+  const build = (geo, mat, from, to, faceOut, tag) => {
     const n = to - from;
     if (n <= 0) return null;
     const mesh = new THREE.InstancedMesh(geo, mat, n);
@@ -149,12 +149,13 @@ export function createCrowd(scene, tier) {
     geo.setAttribute('aSeed', new THREE.InstancedBufferAttribute(seed, 2));
     mesh.instanceMatrix.needsUpdate = true;
     mesh.frustumCulled = false;
+    mesh.userData.tag = tag;
     scene.add(mesh);
     return { mesh, seed, from, n };
   };
   const sets = [
-    build(personGeometry(), bodyMat, 0, meshCount, true),
-    build(cardGeo, cardMat, meshCount, seats.length, false),
+    build(personGeometry(), bodyMat, 0, meshCount, true, 'crowd3d'),
+    build(cardGeo, cardMat, meshCount, seats.length, false, 'crowdCards'),
   ].filter(Boolean);
 
   // flags on poles, scattered through both ends
@@ -183,7 +184,7 @@ export function createCrowd(scene, tier) {
     g.add(pole, cloth);
     g.position.set(f.x, f.y, f.z);
     g.rotation.y = Math.atan2(-f.nx, -f.nz) + (Math.random() - 0.5);
-    g.userData = { away: f.z > PITCH_CZ, base: (Math.random() - 0.5) * 0.4, phase: Math.random() * 6 };
+    g.userData = { tag: 'flags', away: f.z > PITCH_CZ, base: (Math.random() - 0.5) * 0.4, phase: Math.random() * 6 };
     scene.add(g);
     flags.push({ g, fm });
   }

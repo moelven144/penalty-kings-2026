@@ -20,6 +20,7 @@ export function createRenderer(canvas, scene, camera, tierName) {
   let tier = TIERS[tierName];
   let name = tierName;
   let dynamicScale = 1;
+  let override = {}; // development: try a setting without changing the tier table
   let composer = null;
   let bloom = null;
   const size = { width: 1, height: 1, scale: 1 };
@@ -36,17 +37,19 @@ export function createRenderer(canvas, scene, camera, tierName) {
     canvas.style.width = cssW + 'px';
     canvas.style.height = cssH + 'px';
     renderer.shadowMap.type = THREE.PCFShadowMap;
+    const msaa = override.msaa != null ? override.msaa : tier.msaa;
+    const useBloom = override.bloom != null ? override.bloom : tier.bloom;
 
     if (composer) composer.dispose();
     const target = new THREE.WebGLRenderTarget(size.width, size.height, {
       type: THREE.HalfFloatType,
-      samples: tier.msaa,
+      samples: msaa,
       depthBuffer: true,
     });
     composer = new EffectComposer(renderer, target);
     composer.setSize(size.width, size.height);
     composer.addPass(new RenderPass(scene, camera));
-    if (tier.bloom) {
+    if (useBloom) {
       bloom = new UnrealBloomPass(new THREE.Vector2(size.width * tier.bloomScale, size.height * tier.bloomScale), tier.bloomStrength, 0.45, 1.6);
       // UnrealBloomPass sizes its mips from setSize; keep them at the tier's bloom scale
       const origSetSize = bloom.setSize.bind(bloom);
@@ -68,6 +71,8 @@ export function createRenderer(canvas, scene, camera, tierName) {
     setTier(n) { name = n; tier = TIERS[n]; dynamicScale = 1; build(); },
     setDynamicScale(s) { if (s !== dynamicScale) { dynamicScale = s; build(); } },
     resize: build,
+    /** Development: override msaa / bloom and rebuild. */
+    setOverride(o) { override = o || {}; build(); },
     render() {
       renderer.info.reset();
       composer.render();

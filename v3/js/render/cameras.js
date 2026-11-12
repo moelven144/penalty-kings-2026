@@ -10,7 +10,8 @@ const deg = THREE.MathUtils.degToRad;
  * must keep (so the whole goal stays on screen on a narrow portrait phone).
  */
 export const SHOTS = {
-  broadcast: { pos: V(1.0, 2.6, 5.6), look: V(0, 2.9, GOAL_Z), fov: 34, hfov: 31 },
+  // behind and right of the striker: the whole run-up, the ball and the goal in one frame
+  broadcast: { pos: V(1.15, 2.35, 6.6), look: V(-0.1, 2.0, GOAL_Z), fov: 34, hfov: 31 },
   striker: { pos: V(0.6, 1.72, 3.3), look: V(0, 2.6, GOAL_Z), fov: 46, hfov: 34 },
   keeper: { pos: V(0, 1.6, GOAL_Z - 1.7), look: V(0, 1.0, 0), fov: 52, hfov: 70 }, // inside the goal, in front of the back net
   side: { pos: V(10.5, 1.15, GOAL_Z + 5.2), look: V(-0.5, 1.2, GOAL_Z + 0.4), fov: 30, hfov: 34 },

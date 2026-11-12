@@ -67,6 +67,7 @@ export function createStadium(scene, tier) {
     }),
   );
   sky.renderOrder = -10;
+  sky.userData.tag = 'sky';
   group.add(sky);
   {
     const n = 700;
@@ -134,6 +135,7 @@ export function createStadium(scene, tier) {
     m4.compose(v.set(p.x, standPoint(lt, 4.6, 30.0).y, p.z), q, one);
     lamps.setMatrixAt(i, m4);
   }
+  lamps.userData.tag = 'lamps';
   group.add(lamps);
 
   // ---- four corner floodlight rigs above the roof, with glow and light shafts
@@ -167,6 +169,7 @@ export function createStadium(scene, tier) {
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(1.3, 1.2, 1.0), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
     glow.scale.set(34, 26, 1);
     glow.position.set(0, 0, 1.2);
+    glow.userData.tag = 'glow';
     head.add(glow);
     const len = Math.hypot(p.x, H, p.z - PITCH_CZ * 0.35);
     const shaftGeo = new THREE.CylinderGeometry(2.6, 20, len, 28, 1, true);
@@ -177,6 +180,7 @@ export function createStadium(scene, tier) {
     shaft.lookAt(0, 0, PITCH_CZ * 0.35);
     shaft.rotateX(Math.PI);
     shaft.renderOrder = 5;
+    shaft.userData.tag = 'shafts';
     group.add(shaft);
     rigs.push(head);
   }
@@ -194,6 +198,7 @@ export function createStadium(scene, tier) {
     for (let i = 0; i < uv.count; i++) uv.setXY(i, (Math.floor(i / 2) / SEG) * reps, i % 2);
     uv.needsUpdate = true;
   }
+  board.userData.tag = 'led';
   group.add(board);
   const boardBack = sweep([[STAND.ledD + 0.12, 0], [STAND.ledD + 0.12, boardH + 0.05]], dark, { uvScale: 8, fixed: true });
   group.add(boardBack);

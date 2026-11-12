@@ -67,10 +67,16 @@ export function swipePower(samples) {
   const w = RULES.powerWindow;
   const t0 = samples[0].t; const t1 = samples[samples.length - 1].t;
   let peak = 0;
-  if (t1 - t0 <= w) {
-    // a flick shorter than the window: its own average speed
-    const a = samples[0]; const b = samples[samples.length - 1];
-    peak = Math.hypot(b.x - a.x, b.y - a.y) / Math.max(0.03, t1 - t0);
+  // The finger usually rests on the ball during the run-up and then flicks. A flick shorter than
+  // 120 ms (a low shot is a short distance on screen) is measured over its own duration, not
+  // diluted by the rest before it; 50 ms is the floor so one noisy sample cannot fake a blast.
+  const first = samples[0];
+  let moveStart = t0;
+  for (const s of samples) { if (Math.hypot(s.x - first.x, s.y - first.y) > RULES.holdStill) break; moveStart = s.t; }
+  const moving = t1 - moveStart;
+  if (moving < w) {
+    const a = at(samples, moveStart); const b = samples[samples.length - 1];
+    peak = Math.hypot(b.x - a.x, b.y - a.y) / Math.max(0.05, moving);
   } else {
     // slide the window to every sample time (start or end aligned)
     const tryWindow = (start) => {

@@ -2,7 +2,10 @@
 
 The console-style rebuild. Plan: `../v2/REBUILD_PLAN.md`. Assets and licences: `../v2/ASSETS.md`.
 
-**Status: milestone (a) — stadium, lighting, cameras, quality levels, benchmark. No gameplay yet.**
+**Status: milestone (b) — shooting feel.** Touch the ball, the striker runs up, swipe at the goal and let go
+as the standing foot plants. Real ball physics (drag, spin, post and bar, turf), a cloth net, haptics and a
+touch-latency readout. The striker and keeper are stand-in mannequins until milestone (d); there is no sound
+until milestone (e). `?viewer` opens the milestone (a) viewer (camera shots, quality levels, benchmark).
 
 ## Run
 
@@ -31,6 +34,16 @@ URL options: `?tier=low|medium|high|ultra` (force a quality level), `?shot=broad
 
 | Path | What |
 | --- | --- |
+| `js/core/ball.js` | Ball physics: drag, two-axis Magnus, spin decay, turf, round post and bar, net, launch solver (pure, tested) |
+| `js/core/gesture.js` | The shooting gesture rules from section 5 of the plan, one function per rule (pure, tested) |
+| `js/core/shot.js` | Shot types (normal, chip, driven, curler), stand-in keeper colliders, old-link kick conversion |
+| `js/core/legacy/`, `keeper.js`, `rules.js`, `challenge.js`, `profile.js`, `modes.js`, `teams.js`, `rng.js` | v2 logic carried over with its tests; rewired in milestones (c) and (f) |
+| `js/game/shooting.js` | The shooting loop: run-up, strike, flight, result |
+| `js/game/input.js` | Pointer input with coalesced samples, finger trail, latency measurement and flash probe |
+| `js/game/haptics.js` | Haptic patterns (Capacitor plugin in the app) |
+| `js/render/net.js` | Cloth net (Verlet), pinned to the frame, pushed by the ball |
+| `js/render/standin.js` | Stand-in striker (run-up timed to the plant) and keeper |
+| `js/dev/auto.js` | Development-only automatic device runs |
 | `js/core/quality.js` | Quality levels, device guess, GPU-probe refinement, frame-rate watchdog (pure, tested) |
 | `js/render/layout.js` | World dimensions and the stand ring geometry (pure, tested) |
 | `js/render/renderer.js` | HDR render target with MSAA, bloom, tone mapping; benchmark timing |
@@ -72,7 +85,30 @@ frame with the GPU forced to finish (CPU + GPU), so 16.7 ms is the limit for 60 
 - Not measured: any other iPhone. Low and Medium exist for the iPhone 11 to 13, and those numbers are
   still estimates. The first-launch probe decides on those phones; it needs a run on one to confirm.
 
+### Gameplay cameras and milestone (b), same phone, same day
+
+- Real presented frames over 8 s per camera (broadcast, striker, keeper, side, low), with the shooting scene
+  loaded: **Medium and High: 60.0 fps, 1% low 55.6 to 58.8, no frame over 20 ms.**
+  **Ultra: 49 to 53 fps** (originally 4x MSAA; with 2x MSAA and a lighter crowd 52 to 59). Ultra does not hold
+  60 fps in play on this phone, so it is never picked automatically.
+- The blocking "frame cost" number is not reliable on an iPhone: for the same scene it read anywhere from 8 to
+  19 ms as the phone scaled its clocks. Presented frame rate is the measure that counts.
+- Heat: after about 90 minutes of back-to-back automatic runs the phone was throttling: High fell to about
+  53 fps idle and 48 fps during kicks. A fresh 4-minute run held 60. What a normal 15 to 20 minute play session
+  does has not been measured; the watchdog lowers render scale by 10% after 3 slow seconds when it happens.
+- Ten scripted swipes through the real shooting code, in the app: aim to arrival within the scatter radius,
+  curler, chip (2.2 s flight, drops under the bar), driven, a full-power blast at the top corner going over,
+  a wide miss, a save off the stand-in keeper's body, and the net stretching 0.43 to 0.57 m with the ball
+  on hard shots (0.18 m for the chip) and settling.
+- Native haptics calls reach the Capacitor plugin on the phone. Whether each pattern feels right needs a hand.
+- Real touches were checked in the iOS Simulator (touch on the ball starts the run-up, the swipe is read on
+  release). Touch latency could not be judged there. On the phone the HUD shows touch-to-code and
+  touch-to-frame-sent times; the display's own delay needs the slow-motion camera and the flash probe.
+- One gesture rule is read slightly differently from the plan's literal text, on purpose: power is the fastest
+  120 ms of the swipe, but a flick shorter than 120 ms is measured over its own time (minimum 50 ms). Otherwise
+  a low shot, which is a short distance on screen, could never reach driven-shot power.
+
 Quality rules taken from these numbers (`js/core/quality.js`): each level's cost relative to the one
 below it is 1.2x, 1.5x and 1.2x; the first-launch probe steps up only if the next level would use under
-60% of the frame. On this phone that lands on High (8.5 ms x 1.2 = 10.2 ms, just over the 10 ms line);
-Ultra can be chosen by hand and holds 60 fps.
+60% of the frame. The probe never selects Ultra; on this phone the default is High. Ultra can be chosen by hand
+and runs at about 50 to 59 fps in play.

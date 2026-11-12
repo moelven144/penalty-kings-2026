@@ -65,6 +65,16 @@ test('rule 4: power is the fastest 120 ms, so holding first or easing off does n
   near(swipePower([...slow, ...flick]).power, swipePower(fast).power, 0.02);
 });
 
+test('rule 4: a flick shorter than 120 ms is measured over its own time, not diluted by the hold before it', () => {
+  // 0.25 screen heights in 80 ms after resting on the ball for 0.8 s: 3.1 heights/s
+  const pts = swipe({ speed: 3.125, length: 0.25, startT: 0.8 });
+  near(swipePower(pts).peak, 3.125, 0.1);
+  assert.ok(swipePower(pts).power > 0.9);
+  // and a single jumpy sample cannot fake a blast: 50 ms is the shortest time used
+  const jump = [{ x: 0.25, y: 0.8, t: 0 }, { x: 0.25, y: 0.8, t: 0.8 }, { x: 0.25, y: 0.7, t: 0.808 }];
+  near(swipePower(jump).peak, 0.1 / 0.05, 0.01);
+});
+
 test('rule 4: above 90% power the ball rises: +0.25 m at 95%, +0.7 m at 100%', () => {
   assert.equal(overhitRise(0.9), 0);
   assert.equal(overhitRise(0.5), 0);

@@ -47,7 +47,7 @@ export function netTexture() {
   return canvasTexture(128, 128, (g, w, h) => {
     g.clearRect(0, 0, w, h);
     g.strokeStyle = 'rgba(255,255,255,1)';
-    g.lineWidth = 6;
+    g.lineWidth = 8;
     g.lineCap = 'round';
     g.beginPath();
     g.moveTo(0, h / 2); g.lineTo(w / 2, 0); g.lineTo(w, h / 2); g.lineTo(w / 2, h); g.closePath();

@@ -34,9 +34,7 @@ test('the probe moves one step and never lifts a low device', () => {
 });
 
 test('the probe steps up only when the next level would use under 60% of the frame', () => {
-  // 7.9 ms on High x 1.2 = 9.5 ms on Ultra, under 10 ms (60% of 16.7)
-  assert.equal(refineTier('high', 7.9), 'ultra');
-  assert.equal(refineTier('high', 8.5), 'high');
+  assert.equal(refineTier('high', 3), 'high'); // Ultra is never chosen automatically
   assert.equal(refineTier('medium', 6.6), 'high');
   assert.equal(refineTier('medium', 7), 'medium');
 });

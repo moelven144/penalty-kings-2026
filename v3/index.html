@@ -12,6 +12,20 @@
 <body>
   <canvas id="stage"></canvas>
   <div id="loading"><div class="mark">&#9819;</div><div class="word">PENALTY KINGS</div><div id="loading-note">Building the stadium</div></div>
+  <div id="flash"></div>
+  <div id="hud" hidden>
+    <div id="result"></div>
+    <div id="detail"></div>
+    <div id="hint">Touch the ball to start the run-up</div>
+    <div class="row" id="play-tools">
+      <button id="t-keeper">Keeper: off</button>
+      <button id="t-aid" class="on">Aim aid</button>
+      <button id="t-haptics" class="on">Haptics</button>
+      <button id="t-probe">Latency probe</button>
+      <button id="t-view">View</button>
+    </div>
+    <div id="latency"></div>
+  </div>
   <div id="dev" hidden>
     <div id="stats"></div>
     <div class="row" id="shots"></div>
@@ -23,6 +37,18 @@
     </div>
     <pre id="report" hidden></pre>
   </div>
+  <script>
+    // If the game fails to start, say so on the loading screen instead of hanging there.
+    (function () {
+      function show(msg) {
+        var n = document.getElementById('loading-note');
+        if (n && !document.getElementById('loading').classList.contains('done')) n.textContent = 'Could not start: ' + msg;
+        console.error('PK3ERROR ' + msg);
+      }
+      window.addEventListener('error', function (e) { show((e.message || 'script error') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
+      window.addEventListener('unhandledrejection', function (e) { show(String(e.reason && e.reason.message || e.reason)); });
+    })();
+  </script>
   <script type="module" src="./js/main.js"></script>
 </body>
 </html>

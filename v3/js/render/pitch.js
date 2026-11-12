@@ -1,7 +1,7 @@
 // Penalty Kings v3 — pitch, markings, near-camera grass, goal and ball.
 import * as THREE from 'three';
 import { GOAL_Z, GOAL_HALF_W, GOAL_H, POST_R, BALL_R, NET_DEPTH, PITCH_HALF_W, PITCH_LEN, PITCH_CZ } from './layout.js';
-import { loadTexture, netTexture, ballTexture } from './textures.js';
+import { loadTexture, ballTexture } from './textures.js';
 
 // Mowing bands: 5.5 m wide, running across the pitch. Shared by the pitch
 // shader and the grass blades so they always match.
@@ -57,6 +57,7 @@ export function createPitch(scene, tier) {
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(0, 0, PITCH_CZ);
   ground.receiveShadow = true;
+  ground.userData.tag = 'turf';
   group.add(ground);
 
   // ---- markings: thin painted quads just above the turf
@@ -161,6 +162,7 @@ export function createPitch(scene, tier) {
     }
     blades.receiveShadow = true;
     blades.userData.uni = uni;
+    blades.userData.tag = 'blades';
     group.add(blades);
   }
 
@@ -188,7 +190,8 @@ function mergeGeometries(list) {
   return out;
 }
 
-export function createGoal(scene, tier) {
+/** The goal frame and net supports. The net itself is cloth: see net.js. */
+export function createGoal(scene) {
   const group = new THREE.Group();
   scene.add(group);
   const frame = new THREE.MeshStandardMaterial({ color: '#d9dde2', roughness: 0.3, metalness: 0.25 });
@@ -218,22 +221,6 @@ export function createGoal(scene, tier) {
   part(tube(GOAL_HALF_W * 2, 0.022), 0, GOAL_H, backZ, 0, Math.PI / 2, thin);
   part(tube(GOAL_HALF_W * 2, 0.03), 0, 0.03, backZ, 0, Math.PI / 2, thin);
 
-  // static net panels for milestone (a); replaced by simulated cloth in (b)
-  const tex = netTexture();
-  const panel = (w, h, rx, ry) => {
-    const t = tex.clone();
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(w / 0.12, h / 0.12);
-    t.anisotropy = tier.anisotropy;
-    t.needsUpdate = true;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.06, depthWrite: false, side: THREE.DoubleSide, roughness: 0.9, color: '#f4f7fb' }));
-    m.rotation.set(rx, ry, 0);
-    group.add(m);
-    return m;
-  };
-  panel(GOAL_HALF_W * 2, GOAL_H, 0, 0).position.set(0, GOAL_H / 2, backZ);
-  panel(GOAL_HALF_W * 2, NET_DEPTH, Math.PI / 2, 0).position.set(0, GOAL_H, GOAL_Z - NET_DEPTH / 2);
-  for (const sx of [-1, 1]) panel(NET_DEPTH, GOAL_H, 0, Math.PI / 2).position.set(sx * GOAL_HALF_W, GOAL_H / 2, GOAL_Z - NET_DEPTH / 2);
   return { group };
 }
 

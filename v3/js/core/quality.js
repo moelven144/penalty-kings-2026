@@ -26,11 +26,11 @@ export const TIERS = {
     grassBlades: 45000, anisotropy: 8, envSize: 256, netNodes: [56, 22],
   },
   ultra: {
-    label: 'Ultra', targetFps: 60, renderScale: 1.0, maxPixelRatio: 3, msaa: 4,
+    label: 'Ultra', targetFps: 60, renderScale: 1.0, maxPixelRatio: 3, msaa: 2, // at full 3x resolution 2x MSAA is enough; 4x cost 60 fps on an iPhone 17 Pro
     shadowSize: 2048, softShadows: true,
     bloom: true, bloomScale: 0.5, bloomStrength: 0.3,
-    crowdDensity: 1.0, crowdMeshes: 3000, flags: 56,
-    grassBlades: 80000, anisotropy: 8, envSize: 256, netNodes: [72, 28],
+    crowdDensity: 1.0, crowdMeshes: 2400, flags: 56,
+    grassBlades: 60000, anisotropy: 8, envSize: 256, netNodes: [72, 28],
   },
 };
 
@@ -66,7 +66,9 @@ export const STEP_COST = [1, 1.2, 1.5, 1.2];
  * Steps down when the frame does not fit comfortably; steps up when the next
  * level, at its measured relative cost, would still use under 60% of the frame
  * (the rest is headroom for gameplay, replays and a warm phone).
- * Moves at most one step, and never upward on a device guessed 'low'.
+ * Moves at most one step, never upward on a device guessed 'low', and never up to
+ * Ultra: on the one phone measured (iPhone 17 Pro) Ultra dipped to about 50 fps in the
+ * gameplay cameras, so Ultra is only ever a choice the player makes in settings.
  * @param tier current tier
  * @param frameMs measured milliseconds to render one frame
  */
@@ -74,7 +76,7 @@ export function refineTier(tier, frameMs) {
   const i = TIER_ORDER.indexOf(tier);
   const budget = 1000 / TIERS[tier].targetFps;
   if (frameMs > budget * 0.85 && i > 0) return TIER_ORDER[i - 1];
-  if (i > 0 && i < TIER_ORDER.length - 1) {
+  if (i > 0 && i < TIER_ORDER.length - 2) {
     const next = TIER_ORDER[i + 1];
     if (frameMs * STEP_COST[i + 1] < (1000 / TIERS[next].targetFps) * 0.6) return next;
   }
