@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#1f3a7a"/>
+      <stop offset="0.55" stop-color="#0b1838"/>
+      <stop offset="1" stop-color="#040915"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fff1c2" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff1c2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe9a3"/>
+      <stop offset="0.45" stop-color="#ffc933"/>
+      <stop offset="1" stop-color="#c98a00"/>
+    </linearGradient>
+    <radialGradient id="ball" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.7" stop-color="#e6ebf2"/>
+      <stop offset="1" stop-color="#9aa6b8"/>
+    </radialGradient>
+    <clipPath id="ballClip"><circle cx="512" cy="618" r="232"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- floodlight beams -->
+  <polygon points="80,0 250,0 520,700 430,700" fill="#fff6d8" opacity="0.07"/>
+  <polygon points="944,0 774,0 594,700 504,700" fill="#fff6d8" opacity="0.07"/>
+  <ellipse cx="512" cy="560" rx="420" ry="360" fill="url(#glow)"/>
+  <!-- net diamonds behind the ball -->
+  <g stroke="#cfe0ff" stroke-opacity="0.18" stroke-width="5" fill="none">
+    <path d="M112 470 L912 470 M112 560 L912 560 M112 650 L912 650 M112 740 L912 740 M112 830 L912 830"/>
+    <path d="M160 420 L160 900 M250 420 L250 900 M340 420 L340 900 M684 420 L684 900 M774 420 L774 900 M864 420 L864 900"/>
+  </g>
+  <!-- ball -->
+  <circle cx="512" cy="618" r="232" fill="url(#ball)"/>
+  <g clip-path="url(#ballClip)">
+    <path d="M250 540 C 360 470, 470 610, 560 540 S 760 470, 790 560" stroke="#0f172a" stroke-width="34" fill="none"/>
+    <path d="M250 588 C 360 520, 470 660, 560 590 S 760 520, 790 610" stroke="#ffc933" stroke-width="18" fill="none"/>
+    <path d="M240 712 C 360 640, 470 780, 560 712 S 760 640, 800 730" stroke="#0f172a" stroke-width="34" fill="none"/>
+    <path d="M240 672 C 360 600, 470 740, 560 672 S 760 600, 800 690" stroke="#e11d48" stroke-width="16" fill="none"/>
+  </g>
+  <circle cx="512" cy="618" r="232" fill="none" stroke="#0f172a" stroke-opacity="0.35" stroke-width="6"/>
+  <!-- crown -->
+  <g transform="translate(512 300)">
+    <path d="M-210 90 L-240 -90 L-120 10 L0 -140 L120 10 L240 -90 L210 90 Z" fill="url(#gold)" stroke="#7a5200" stroke-width="10" stroke-linejoin="round"/>
+    <rect x="-214" y="84" width="428" height="54" rx="14" fill="url(#gold)" stroke="#7a5200" stroke-width="10"/>
+    <circle cx="-240" cy="-100" r="26" fill="#ffe9a3" stroke="#7a5200" stroke-width="8"/>
+    <circle cx="0" cy="-152" r="30" fill="#ffe9a3" stroke="#7a5200" stroke-width="8"/>
+    <circle cx="240" cy="-100" r="26" fill="#ffe9a3" stroke="#7a5200" stroke-width="8"/>
+    <circle cx="0" cy="40" r="22" fill="#e11d48"/>
+    <circle cx="-110" cy="62" r="14" fill="#2563eb"/>
+    <circle cx="110" cy="62" r="14" fill="#2563eb"/>
+  </g>
+</svg>
