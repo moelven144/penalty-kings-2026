@@ -25,7 +25,7 @@ const SHADER_MOTION = `
   float stand = 0.22 * up * ex;`;
 
 /**
- * One seated supporter, about 150 triangles. aPart: 0 shirt, 1 skin, 2 hair,
+ * One seated supporter, about 130 triangles. aPart: 0 shirt, 1 skin, 2 hair,
  * 3 trousers. aArm is how far each arm vertex moves when the arms go up.
  */
 function personGeometry() {
@@ -51,9 +51,9 @@ function personGeometry() {
     }
   };
   add(new THREE.BoxGeometry(0.36, 0.44, 0.24).translate(0, 0.22, 0.03), 3);
-  add(new THREE.CylinderGeometry(0.2, 0.165, 0.46, 8).scale(1, 1, 0.62).translate(0, 0.66, 0), 0);
-  add(new THREE.SphereGeometry(0.105, 7, 5).translate(0, 1.02, 0), 1);
-  add(new THREE.SphereGeometry(0.112, 7, 3, 0, Math.PI * 2, 0, Math.PI * 0.52).translate(0, 1.03, -0.012), 2);
+  add(new THREE.CylinderGeometry(0.2, 0.165, 0.46, 6).scale(1, 1, 0.62).translate(0, 0.66, 0), 0);
+  add(new THREE.SphereGeometry(0.105, 6, 4).translate(0, 1.02, 0), 1);
+  add(new THREE.SphereGeometry(0.112, 6, 2, 0, Math.PI * 2, 0, Math.PI * 0.52).translate(0, 1.03, -0.012), 2);
   for (const sx of [-1, 1]) {
     const lift = { x: sx * 0.21, y: 0.85, angle: -sx * 2.75 };
     add(new THREE.BoxGeometry(0.075, 0.24, 0.085).translate(sx * 0.225, 0.74, 0.01), 0, lift);

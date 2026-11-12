@@ -15,21 +15,21 @@ export const TIERS = {
     label: 'Medium', targetFps: 60, renderScale: 0.75, maxPixelRatio: 3, msaa: 2,
     shadowSize: 1024, softShadows: true,
     bloom: true, bloomScale: 0.5, bloomStrength: 0.25,
-    crowdDensity: 0.65, crowdMeshes: 2000, flags: 24,
+    crowdDensity: 0.65, crowdMeshes: 900, flags: 24,
     grassBlades: 20000, anisotropy: 4, envSize: 128, netNodes: [40, 16],
   },
   high: {
     label: 'High', targetFps: 60, renderScale: 0.9, maxPixelRatio: 3, msaa: 4,
     shadowSize: 2048, softShadows: true,
     bloom: true, bloomScale: 0.5, bloomStrength: 0.28,
-    crowdDensity: 0.85, crowdMeshes: 5000, flags: 40,
+    crowdDensity: 0.85, crowdMeshes: 1800, flags: 40,
     grassBlades: 45000, anisotropy: 8, envSize: 256, netNodes: [56, 22],
   },
   ultra: {
     label: 'Ultra', targetFps: 60, renderScale: 1.0, maxPixelRatio: 3, msaa: 4,
     shadowSize: 2048, softShadows: true,
     bloom: true, bloomScale: 0.5, bloomStrength: 0.3,
-    crowdDensity: 1.0, crowdMeshes: 8000, flags: 56,
+    crowdDensity: 1.0, crowdMeshes: 3000, flags: 56,
     grassBlades: 80000, anisotropy: 8, envSize: 256, netNodes: [72, 28],
   },
 };
@@ -59,7 +59,7 @@ export function guessTier(d) {
  * iPhone (see v3/README.md, "Measured on devices"). Index i = cost of
  * TIER_ORDER[i] divided by the cost of TIER_ORDER[i - 1].
  */
-export const STEP_COST = [1, 1.5, 1.5, 1.25];
+export const STEP_COST = [1, 1.2, 1.5, 1.2];
 
 /**
  * Refine a tier from a measured frame cost at that tier (CPU + GPU, finished).
