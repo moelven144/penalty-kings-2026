@@ -58,6 +58,7 @@ export function newBall(launch) {
     scored: false, // the whole ball is over the line
     past: false, // went past the goal line outside the frame
     netDepth: 0, // how far the ball is pushed into the net right now (m)
+    held: false, // caught and held by the keeper
     events: [], // {type:'post'|'bar'|'ground'|'net'|'goal'|'out'|<obstacle name>, t, speed, x, y}
   };
 }
@@ -73,8 +74,16 @@ function hitCapsule(s, c) {
   if (d >= min || d < 1e-9) return false;
   const ux = nx / d; const uy = ny / d; const uz = nz / d;
   p.x += ux * (min - d); p.y += uy * (min - d); p.z += uz * (min - d);
-  const vn = v.x * ux + v.y * uy + v.z * uz;
+  // the obstacle may be moving (a diving keeper's hands): bounce relative to it
+  const ox = c.vx || 0; const oy = c.vy || 0;
+  const vn = (v.x - ox) * ux + (v.y - oy) * uy + v.z * uz;
   if (vn >= 0) return false;
+  if (c.catch && -vn < c.catch) {
+    // slow enough and into the hands or chest: held
+    v.x = 0; v.y = 0; v.z = 0; s.sideSpin = 0; s.topSpin = 0; s.held = true;
+    s.events.push({ type: c.name, t: s.t, speed: -vn, x: p.x, y: p.y, held: true });
+    return true;
+  }
   const j = -(1 + c.e) * vn;
   v.x += j * ux; v.y += j * uy; v.z += j * uz;
   // a glancing touch scrubs a little speed and most of the spin
@@ -98,9 +107,11 @@ function netPush(s, axis, depth, dir, dt) {
 
 /**
  * Advance the ball by one fixed STEP. Mutates and returns the state.
- * @param obstacles extra capsules (a keeper's body and hands): {name, a, b, r, e}
+ * @param obstacles extra capsules (a keeper's body and hands): {name, a, b, r, e, catch?, vx?, vy?},
+ *   or a function of time returning them (a keeper who moves)
  */
 export function stepBall(s, obstacles = null) {
+  if (s.held) { s.t += STEP; return s; }
   const dt = STEP;
   const { p, v } = s;
   const prevZ = p.z;
@@ -136,7 +147,7 @@ export function stepBall(s, obstacles = null) {
 
   // goal frame, then anything else in the way
   for (const c of FRAME) hitCapsule(s, c);
-  if (obstacles) for (const c of obstacles) hitCapsule(s, c);
+  if (obstacles) for (const c of (typeof obstacles === 'function' ? obstacles(s.t) : obstacles)) hitCapsule(s, c);
 
   // crossing the goal line: between the posts and under the bar, or past it
   if (!s.inGoal && !s.past && prevZ < SPOT_DISTANCE && p.z >= SPOT_DISTANCE) {
@@ -170,9 +181,12 @@ export function stepBall(s, obstacles = null) {
   return s;
 }
 
+/** Names an obstacle capsule can have (keeper parts). */
+export const OBSTACLE_PARTS = ['hands', 'arms', 'body', 'head', 'legs'];
+
 /** The ball has stopped mattering: at rest, or well past the goal, or far too long. */
 export function ballDone(s) {
-  if (s.t > 8) return true;
+  if (s.t > 8 || s.held) return true;
   if (s.past && (s.p.z > SPOT_DISTANCE + 6 || s.t > 5)) return true;
   const sp = Math.hypot(s.v.x, s.v.y, s.v.z);
   return sp < 0.25 && s.p.y <= BALL_RADIUS + 0.02;
@@ -194,7 +208,7 @@ export function simulate(launch, obstacles = null) {
   }
   const first = (type) => s.events.find((e) => e.type === type);
   const wood = s.events.find((e) => e.type === 'post' || e.type === 'bar');
-  const body = obstacles ? s.events.find((e) => obstacles.some((o) => o.name === e.type)) : null;
+  const body = obstacles ? s.events.find((e) => OBSTACLE_PARTS.includes(e.type)) : null;
   const goal = first('goal');
   let outcome; let reason;
   if (goal) {
