@@ -1,4 +1,4 @@
-// Carried over from v2 unchanged (see v2/js). Used until the v3 keeper, modes and link replay replace it.
+// Carried over from v2 unchanged (see legacy/v2/js). Used until the v3 keeper, modes and link replay replace it.
 // Penalty Kings v2 — turning input into kicks, and kicks into results.
 
 import { predictCrossing, insideFrame, woodworkAt, woodworkGoesIn, clamp } from './physics.js';

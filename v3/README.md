@@ -1,6 +1,6 @@
 # Penalty Kings v3 (rebuild in progress)
 
-The console-style rebuild. Plan: `../v2/REBUILD_PLAN.md`. Assets and licences: `../v2/ASSETS.md`.
+The console-style rebuild. Plan: `REBUILD_PLAN.md`. Assets and licences: `ASSETS.md`.
 
 **Status: milestone (b) — shooting feel.** Touch the ball, the striker runs up, swipe at the goal and let go
 as the standing foot plants. Real ball physics (drag, spin, post and bar, turf), a cloth net, haptics and a

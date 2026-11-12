@@ -4,7 +4,7 @@
 // animated in the vertex shader. Stands react separately (home end behind the
 // goal, away end opposite), and flags wave in the nations' colours.
 import * as THREE from 'three';
-import { ringPoint, ringLengthAt, STAND, tierY, PITCH_CZ, GOAL_Z, standPoint } from './layout.js';
+import { ringPoint, ringLengthAt, STAND, tierY, PITCH_CZ, GOAL_Z, standPoint, inAisle } from './layout.js';
 import { crowdAtlas } from './textures.js';
 
 const NEUTRAL = ['#d8dbe0', '#14181f', '#3b4250', '#8b93a1', '#6d3b1f', '#2f4a36'];
@@ -78,6 +78,7 @@ export function createCrowd(scene, tier) {
       for (let i = 0; i < n; i++) {
         if (Math.random() > tier.crowdDensity * 0.94) continue;
         const rt = (i + Math.random() * 0.3) / n;
+        if (inAisle(rt)) continue; // stairways stay clear
         const sp = standPoint(rt, d, y);
         // where the upper tier is squeezed at the goal ends, keep only some rows
         if (sp.d !== d && Math.random() > (sp.d - 13) / (d - 13) + 0.05) continue;
@@ -164,7 +165,8 @@ export function createCrowd(scene, tier) {
   flagGeo.translate(1.4, 0, 0);
   const poleMat = new THREE.MeshStandardMaterial({ color: '#c8ccd2', roughness: 0.5, metalness: 0.4 });
   for (let i = 0; i < tier.flags; i++) {
-    const f = seats[Math.floor(Math.random() * seats.length)];
+    let f = seats[Math.floor(Math.random() * seats.length)];
+    for (let tries = 0; tries < 20 && f.y > 8.5; tries++) f = seats[Math.floor(Math.random() * seats.length)]; // flags stay in the lower tier
     const fm = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       uniforms: { uTime: uni.uTime, uA: { value: new THREE.Color('#ffffff') }, uB: { value: new THREE.Color('#c00000') }, uPhase: { value: Math.random() * 6.28 } },

@@ -1,4 +1,4 @@
-// One test (or more) per gesture rule in section 5 of v2/REBUILD_PLAN.md.
+// One test (or more) per gesture rule in section 5 of v3/REBUILD_PLAN.md.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {

@@ -1,4 +1,4 @@
-// Saving rules from section 5 of v2/REBUILD_PLAN.md, and the honesty of both AIs.
+// Saving rules from section 5 of v3/REBUILD_PLAN.md, and the honesty of both AIs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { KEEPER, playerDive, stayPut, handsAt, keeperBody, keeperObstacles } from '../js/core/save.js';

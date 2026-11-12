@@ -533,11 +533,74 @@ export function createApp(w) {
   $('quit').onclick = toMenu;
   canvas.addEventListener('pointerdown', unlockAudio, { passive: true });
 
+  // ---------------------------------------------------------------- store screenshots (?stage=..., development)
+  // Sets up one real moment of the game and holds it still, so the simulator can photograph it.
+  async function stage(name) {
+    const THREE = await import('three');
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const until = async (f) => { for (let i = 0; i < 1200 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); };
+    const freeze = () => { window.__pk3Freeze = true; };
+    game.me = TEAMS[teamIndex('NOR')] || game.me; game.them = TEAMS[teamIndex('BRA')];
+    const swipeTo = (gx, gy, bend) => {
+      const b = match.ballOnScreen();
+      const v = new THREE.Vector3(gx, gy, -11).project(w.camera);
+      const e = { x: ((v.x + 1) / 2) * (innerWidth / innerHeight), y: (1 - v.y) / 2 };
+      const len = Math.hypot(e.x - b.x, e.y - b.y); const nx = -(e.y - b.y) / len; const ny = (e.x - b.x) / len;
+      const pts = [{ x: b.x, y: b.y, t: 0 }, { x: b.x, y: b.y, t: 0.72 }];
+      for (let i = 1; i <= 24; i++) { const q = i / 24; const off = bend * len * Math.sin(Math.PI * q); pts.push({ x: b.x + (e.x - b.x) * q + nx * off, y: b.y + (e.y - b.y) * q + ny * off, t: 0.72 + 0.19 * q }); }
+      match.autoShoot(pts);
+    };
+    const quick = () => {
+      game.mode = 'quick'; game.phase = 'play'; game.shootout = newShootout(); game.playerTeam = 0; game.myKicks = []; game.level = null;
+      [1, 1, 0, 1].forEach((g, i) => record(game.shootout, i % 2, !!g));
+      setTeams(); updateScoreboard(); showPanel(false); $('hud').hidden = false;
+    };
+    if (name === 'title') { titleScreen(); return; }
+    if (name === 'map') { Object.assign(profile.glory, { g1: 3, g2: 3, g3: 2, g4: 3, g5: 1, g6: 2, g7: 3 }); levelMap(); return; }
+    if (name === 'end') {
+      quick(); game.shootout = newShootout();
+      [[1, 1], [1, 0], [1, 1], [1, 0], [1, 1]].forEach(([a, b]) => { if (winner(game.shootout) === null) record(game.shootout, 0, !!a); if (winner(game.shootout) === null) record(game.shootout, 1, !!b); });
+      game.myKicks = Array.from({ length: 5 }, () => quantise2({ target: { x: 2, y: 1 }, power: 0.6, curve: 0, type: 'normal', grade: 'clean' }));
+      updateScoreboard(); finish(winner(game.shootout)); return;
+    }
+    quick();
+    if (name === 'flight') {
+      // a curler on its way to the top corner, from the shooter's view
+      dress(game.me, game.them);
+      beginKick({ shooterHuman: true, keeperMode: 'cpu', keeperSkill: 0.2 });
+      await wait(300); swipeTo(3.0, 2.0, 0.2);
+      await until(() => match.kick.sim && match.kick.sim.p.z > 7.2);
+      hint(''); freeze();
+    } else if (name === 'save') {
+      // the player in goal, at full stretch
+      dress(game.them, game.me);
+      beginKick({ shooterHuman: false, keeperMode: 'human', strikerSkill: 0.3, fixedShot: { target: { x: -2.3, y: 1.35 }, power: 0.55, curve: 0, type: 'normal', timing: { grade: 'clean', offset: 0, strikeT: 0.9 } }, delay: 200 });
+      await until(() => match.state === 'flight');
+      match.autoDive({ x: -2.3, y: 1.4 }, 0.02);
+      await until(() => match.kick.sim.t > 0.4);
+      rig.set('replayL', true); hint(''); sub('');
+      await new Promise((r) => requestAnimationFrame(r));
+      banner('SAVED!', true, 600000); freeze();
+    } else if (name === 'party') {
+      // the slow-motion replay of a goal
+      dress(game.me, game.them);
+      beginKick({ shooterHuman: true, keeperMode: 'cpu', keeperSkill: 0.9 });
+      await wait(300); swipeTo(-3.1, 1.9, -0.18);
+      await until(() => match.state === 'after');
+      clearTimeout(timer);
+      match.replay(() => {});
+      await until(() => match.kick.replayT > (match.kick.crossing ? match.kick.crossing.t : 0.4) - 0.03);
+      banner('REPLAY', true, 600000); hint(''); freeze();
+    }
+  }
+
   return {
+    stage,
     game, profile, clips,
     /** Call once the stadium is ready. */
     boot() {
       rig.set('orbit', false);
+      if (params.get('stage')) { titleScreen(); stage(params.get('stage')).then(() => setTimeout(() => { window.__pk3StageReady = true; }, 700)); return; }
       if (!profile.onboarded && !challenge && !DEBUG) tutorial(0); else titleScreen();
     },
     tick() { clips.tick(); },

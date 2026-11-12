@@ -11,16 +11,15 @@ QUERY="${1:-}"
 DEVICE="${PK_DEVICE:-$(xcrun devicectl list devices 2>/dev/null | awk '/physical/ && /connected|available/ {for(i=1;i<=NF;i++) if ($i ~ /^[0-9A-F]{8}-[0-9A-F]{16}$/) {print $i; exit}}')}"
 [ -n "$DEVICE" ] || { echo "No connected iPhone found"; exit 1; }
 
-npx cap sync ios >/dev/null
+scripts/sync-ios.sh --dev >/dev/null
 PUBLIC=ios/App/App/public
-rm -rf "$PUBLIC/test" "$PUBLIC/README.md" "$PUBLIC/package.json"   # not part of the game
 if [ -n "$QUERY" ]; then
   # only the synced copy (git-ignored build output) is changed, never v3/index.html
   python3 - "$PUBLIC/index.html" "$QUERY" <<'EOF'
 import sys
 p, q = sys.argv[1], sys.argv[2]
 s = open(p).read()
-s = s.replace('<script type="module"', '<script>if(!location.search){location.replace("?%s");}</script>\n  <script type="module"' % q, 1)
+s = s.replace('<script type="module"', '<script>window.__PK3_QUERY = "%s";</script>\n  <script type="module"' % q, 1)
 open(p, 'w').write(s)
 EOF
 fi

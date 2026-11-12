@@ -16,7 +16,8 @@ import { createApp } from './game/app.js';
 import { sfx } from './game/audio.js';
 
 const $ = (id) => document.getElementById(id);
-const params = new URLSearchParams(location.search);
+// development builds can pass options without a URL (scripts/ios-device.sh, scripts/store-shots.sh)
+const params = new URLSearchParams(location.search || window.__PK3_QUERY || '');
 const storage = (() => { try { return window.localStorage; } catch { return null; } })();
 
 // ---- pick a quality tier: URL > saved choice > device guess (refined by a probe)
@@ -63,7 +64,7 @@ function startGame(assets) {
     onHint: (t) => { $('hint').textContent = t; },
     onStrike: (s) => { $('sub').textContent = `${SHOT_TYPES[s.type].label} · ${s.kmh} km/h · ${{ perfect: 'Perfect strike', clean: 'Clean strike', rushed: 'Rushed', scuffed: 'Scuffed' }[s.grade]}`; },
   });
-  app = createApp({ canvas, match, crowd, rig, striker, keeper, gfx, tierName, storage: storage || { getItem: () => null, setItem: () => {} }, params });
+  app = createApp({ canvas, camera, match, crowd, rig, striker, keeper, gfx, tierName, storage: storage || { getItem: () => null, setItem: () => {} }, params });
 }
 
 // ---- frame loop with a rolling frame-time window
@@ -86,9 +87,9 @@ function frame(now) {
 
   stadium.update(dt);
   pitch.update(dt, clock);
-  crowd.update(dt);
+  if (!window.__pk3Freeze) crowd.update(dt);
   rig.update(dt, clock);
-  if (match) match.update(now, dt);
+  if (match && !window.__pk3Freeze) match.update(now, dt);
   else { ball.rotation.y += dt * 0.2; net.update(dt, null); }
   gfx.render();
   if (match) { match.input.render(gfx.renderer, performance.now()); app.tick(); }

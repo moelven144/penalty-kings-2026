@@ -56,6 +56,11 @@ export function ringPoint(t, d = 0) {
   return out(-(HX - R) + s, -HZ, 0, -1);
 }
 
+/** Stairways through the stands: one every AISLE metres of the front-row ring, AISLE_WIDTH wide. */
+export const AISLE = 11;
+export const AISLE_WIDTH = 1.1;
+export const inAisle = (t) => ((((t % 1) + 1) % 1) * RING_LENGTH) % AISLE < AISLE_WIDTH;
+
 /** Ring length at an outward offset d. */
 export const ringLengthAt = (d) => RING_LENGTH + 2 * Math.PI * d;
 

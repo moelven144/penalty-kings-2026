@@ -2,41 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#06101f">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Penalty Kings</title>
-  <meta name="description" content="Swipe to shoot, swipe to save, and send your penalties to a friend. 100% free: no ads, nothing to buy.">
   <meta property="og:title" content="Penalty Kings: can you save my penalties?">
   <meta property="og:description" content="I took 5 penalties. Your turn in goal. Plays right here, no download needed.">
-  <meta property="og:image" content="icons/icon-512.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
-  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="./style.css">
-  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+  <meta property="og:image" content="../v3/icons/icon-512.png">
+  <script>
+    // The game moved to ../v3/. Old links keep working: the challenge code after # is carried over.
+    location.replace('../v3/' + location.search + location.hash);
+  </script>
+  <style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#04070f;color:#f4f7fb;font:600 17px -apple-system,sans-serif}a{color:#ffc933}</style>
 </head>
 <body>
-  <canvas id="stage"></canvas>
-  <div id="hud">
-    <div id="scoreboard">
-      <div class="team" id="team0"><span class="name"></span><span class="dots"></span></div>
-      <div id="score">0 – 0</div>
-      <div class="team right" id="team1"><span class="name"></span><span class="dots"></span></div>
-    </div>
-    <button id="mute" aria-label="Sound on or off">🔊</button>
-    <div id="banner"></div>
-    <div id="hint"></div>
-  </div>
-  <div id="panel" hidden>
-    <h1 id="panel-title"></h1>
-    <p id="panel-text"></p>
-    <div id="panel-extra"></div>
-    <button id="btn-primary"></button>
-    <button id="btn-glory" class="clip" hidden></button>
-    <button id="btn-clip" class="clip" hidden></button>
-    <button id="btn-secondary" class="ghost"></button>
-  </div>
-  <script type="module" src="./js/main.js"></script>
+  <noscript><a href="../v3/">Play Penalty Kings</a></noscript>
 </body>
 </html>

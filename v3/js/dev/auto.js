@@ -24,11 +24,18 @@ async function post(path, body, type = 'text/plain') {
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const frames = (n) => new Promise((r) => { const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
 
+/** This page's address, carrying options that were passed without a URL. */
+function here(params) {
+  const u = new URL(location.href);
+  if (!location.search) for (const [k, v] of params) u.searchParams.set(k, v);
+  return u;
+}
+
 /** Start the next mode listed in ?next=, if any. */
 function chain(params) {
   const next = (params.get('next') || '').split(',').filter(Boolean);
   if (!next.length) return false;
-  const u = new URL(location.href);
+  const u = here(params);
   for (const k of ['i', 'j', 'tm']) u.searchParams.delete(k);
   u.searchParams.set('auto', next.shift());
   if (next.length) u.searchParams.set('next', next.join(',')); else u.searchParams.delete('next');
@@ -56,7 +63,7 @@ export async function runAuto(ctx) {
     const i = Number(params.get('i') || 0);
     const lines = await ctx.runBenchmark();
     await post('/__report', JSON.stringify({ kind: 'bench', tag, tier: TIER_ORDER[i], lines }), 'application/json');
-    const u = new URL(location.href);
+    const u = here(params);
     if (i + 1 < TIER_ORDER.length) { u.searchParams.set('i', String(i + 1)); location.href = u.toString(); }
     else { await post('/__report', JSON.stringify({ kind: 'bench-done', tag }), 'application/json'); chain(params); }
   } else if (mode === 'shots') {
@@ -64,7 +71,7 @@ export async function runAuto(ctx) {
     const TMS = ['aces', 'agx', 'neutral'];
     const j = Number(params.get('j') || 0);
     const tm = params.get('tm') || TMS[0];
-    if (!params.get('tm')) { const u = new URL(location.href); u.searchParams.set('tm', tm); location.replace(u.toString()); return; }
+    if (!params.get('tm')) { const u = here(params); u.searchParams.set('tm', tm); location.replace(u.toString()); return; }
     for (const name of ctx.shotNames) {
       rig.set(name, true);
       await frames(name === 'orbit' ? 120 : 20);
@@ -73,7 +80,7 @@ export async function runAuto(ctx) {
       if (blob) await post(`/__shot?name=${tag}${gfx.tierName}_${tm}_${name}`, blob, 'image/jpeg');
     }
     await post('/__report', JSON.stringify({ kind: 'shots', tag, tm, tier: gfx.tierName }), 'application/json');
-    const u = new URL(location.href);
+    const u = here(params);
     if (j + 1 < TMS.length) { u.searchParams.set('j', String(j + 1)); u.searchParams.set('tm', TMS[j + 1]); location.href = u.toString(); }
     else { await post('/__report', JSON.stringify({ kind: 'shots-done', tag }), 'application/json'); chain(params); }
   } else if (mode === 'cams') {
@@ -98,7 +105,7 @@ export async function runAuto(ctx) {
     const order = ['low', 'medium', 'high', 'ultra'];
     const want = (params.get('tiers') || '').split(',').filter(Boolean);
     const i = want.indexOf(gfx.tierName);
-    if (i >= 0 && i + 1 < want.length && order.includes(want[i + 1])) { const u = new URL(location.href); u.searchParams.set('tier', want[i + 1]); location.href = u.toString(); return; }
+    if (i >= 0 && i + 1 < want.length && order.includes(want[i + 1])) { const u = here(params); u.searchParams.set('tier', want[i + 1]); location.href = u.toString(); return; }
     await post('/__report', JSON.stringify({ kind: 'cams-done', tag }), 'application/json');
     chain(params);
   } else if (mode === 'ab') {
@@ -153,7 +160,7 @@ async function playScript(ctx, tag) {
   const { match, app, gfx, canvas } = ctx;
   const THREE = await import('three');
   const cam = window.__pk3.camera;
-  const nosnap = new URLSearchParams(location.search).has('nosnap');
+  const nosnap = ctx.params.has('nosnap');
   const deltas = []; let lastFrame = 0; let recording = true;
   const rec = (t) => { if (lastFrame) deltas.push(t - lastFrame); lastFrame = t; if (recording) requestAnimationFrame(rec); };
   requestAnimationFrame(rec);
@@ -199,7 +206,7 @@ async function playScript(ctx, tag) {
   app.start('quick');
   const quick = await drive('quick', () => app.game.phase === 'over');
   await wait(600); await snap('quick_end');
-  await post('/__report', JSON.stringify({ kind: 'play', tag, mode: 'quick', title: document.getElementById('panel-title').textContent, kicks: quick }), 'application/json');
+  await post('/__report', JSON.stringify({ kind: 'play', tag, mode: 'quick', title: document.getElementById('panel-title').textContent, kicks: quick, clipSupported: !!app.clips.supported, clipRecorded: !!app.clips.best, clipBytes: app.clips.best && app.clips.best.blob ? app.clips.best.blob.size : 0, haptics: (await import('../game/haptics.js')).haptics.native }), 'application/json');
   for (const n of [1, 2, 3]) {
     app.startLevel(n);
     const log = await drive(`glory${n}`, () => app.game.phase === 'over');

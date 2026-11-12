@@ -1,4 +1,4 @@
-// Carried over from v2 unchanged (see v2/js). Used until the v3 keeper, modes and link replay replace it.
+// Carried over from v2 unchanged (see legacy/v2/js). Used until the v3 keeper, modes and link replay replace it.
 // Penalty Kings v2 — ball flight physics.
 // Pure functions, no rendering, so it runs the same in the app, in the
 // browser share link and in Node tests.

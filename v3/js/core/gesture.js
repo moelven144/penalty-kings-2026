@@ -1,5 +1,5 @@
 // Penalty Kings v3 — the shooting gesture, exactly as written in section 5 of
-// v2/REBUILD_PLAN.md. Pure functions: every rule here has a test.
+// v3/REBUILD_PLAN.md. Pure functions: every rule here has a test.
 //
 // Swipe samples are {x, y, t}: x and y in fractions of the screen HEIGHT
 // (x right, y down), t in seconds since the finger touched the ball.

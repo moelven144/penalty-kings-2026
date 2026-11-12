@@ -2,7 +2,7 @@
 // roof, roof-edge lighting, four corner floodlight rigs and LED boards.
 // Everything is modelled in code; surfaces use CC0 concrete maps (see ASSETS.md).
 import * as THREE from 'three';
-import { ringPoint, RING_LENGTH, STAND, PITCH_CZ, GOAL_Z, standPoint } from './layout.js';
+import { ringPoint, RING_LENGTH, STAND, PITCH_CZ, GOAL_Z, standPoint, AISLE, AISLE_WIDTH } from './layout.js';
 import { loadTexture, canvasTexture, glowTexture, ledTexture } from './textures.js';
 
 const SEG = 144; // segments around the ring
@@ -97,6 +97,14 @@ export function createStadium(scene, tier) {
   }, { repeat: [1, 1], anisotropy: aniso });
   seatTex.wrapS = seatTex.wrapT = THREE.RepeatWrapping;
   const seats = new THREE.MeshStandardMaterial({ map: seatTex, roughness: 0.85, side: THREE.DoubleSide });
+  // stairways: a concrete aisle every AISLE metres round the bowl (the crowd leaves them clear, see crowd.js)
+  seats.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+      float aisleU = vMapUv.x * 0.85; // metres round the ring
+      float inAisle = 1.0 - step(${AISLE_WIDTH.toFixed(2)}, mod(aisleU, ${AISLE.toFixed(1)}));
+      float stepLine = step(0.8, fract(vMapUv.y));
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.16, 0.17, 0.19) * (0.7 + 0.5 * stepLine), inAisle);`);
+  };
   const roofTex = canvasTexture(128, 128, (g, w, h) => {
     g.fillStyle = '#141a24'; g.fillRect(0, 0, w, h);
     g.strokeStyle = '#2a3445'; g.lineWidth = 6;
@@ -167,7 +175,7 @@ export function createStadium(scene, tier) {
     }
     head.add(bulbs);
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(1.3, 1.2, 1.0), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
-    glow.scale.set(34, 26, 1);
+    glow.scale.set(20, 15, 1);
     glow.position.set(0, 0, 1.2);
     glow.userData.tag = 'glow';
     head.add(glow);

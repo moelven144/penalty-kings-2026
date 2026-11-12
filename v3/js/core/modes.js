@@ -103,7 +103,7 @@ export function gloryLevel(n) {
     case 'panenka':
       level.kicks = 3;
       level.keeper = { ...keeper, alwaysDives: true };
-      level.stars = ['Score a Panenka', 'Score 2 Panenkas', 'Score 3 Panenkas'];
+      level.stars = ['Score a chip down the middle', 'Score 2 chips down the middle', 'Score 3 chips down the middle'];
       level.need = [1, 2, 3];
       break;
   }
