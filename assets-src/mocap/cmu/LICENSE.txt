@@ -1,0 +1,12 @@
+CMU Graphics Lab Motion Capture Database, subject 10 ("kick soccer ball")
+Source: https://mocap.cs.cmu.edu/search.php?subjectnumber=10
+Files:  10.asf (skeleton), 10_01/02/03/05/06.amc (soccer - kick ball), downloaded 2026-11-12
+
+Usage terms, quoted from https://mocap.cs.cmu.edu/faqs.php ("How can I use this data?"),
+read on 2026-11-12:
+
+  "The motion capture data may be copied, modified, or redistributed without permission."
+
+Credit requested by the database (given in the game's credits):
+  The data used in this project was obtained from mocap.cs.cmu.edu.
+  The database was created with funding from NSF EIA-0196217.

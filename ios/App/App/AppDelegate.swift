@@ -8,6 +8,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        #if DEBUG
+        // Development builds only: keep the screen awake so unattended benchmark and heat runs can finish.
+        application.isIdleTimerDisabled = true
+        #endif
         return true
     }
 

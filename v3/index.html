@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#04070f">
+  <title>Penalty Kings</title>
+  <meta name="description" content="Swipe to shoot, swipe to save, and send your penalties to a friend. 100% free: no ads, nothing to buy.">
+  <meta property="og:title" content="Penalty Kings: can you save my penalties?">
+  <meta property="og:description" content="I took 5 penalties. Your turn in goal. Plays right here, no download needed.">
+  <meta property="og:image" content="icons/icon-512.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <div id="loading"><div class="mark">&#9819;</div><div class="word">PENALTY KINGS</div><div id="loading-note">Building the stadium</div></div>
+  <div id="flash"></div>
+  <div id="hud" hidden>
+    <div id="scoreboard">
+      <div class="team" id="team0"><span class="name"></span><span class="dots"></span></div>
+      <div id="score">0 – 0</div>
+      <div class="team right" id="team1"><span class="name"></span><span class="dots"></span></div>
+    </div>
+    <button id="mute" aria-label="Sound on or off">🔊</button>
+    <button id="quit" aria-label="Back to the menu">✕</button>
+    <div id="caption"></div>
+    <div id="banner"></div>
+    <div id="sub"></div>
+    <div id="hint"></div>
+  </div>
+  <div id="panel" hidden>
+    <h1 id="panel-title"></h1>
+    <p id="panel-text"></p>
+    <div id="panel-extra"></div>
+    <button id="btn-primary"></button>
+    <button id="btn-glory" class="clip" hidden></button>
+    <button id="btn-clip" class="clip" hidden></button>
+    <button id="btn-secondary" class="ghost"></button>
+    <button id="btn-settings" class="ghost small" hidden>Settings</button>
+  </div>
+  <div id="dev" hidden>
+    <div id="stats"></div>
+    <div class="row" id="shots"></div>
+    <div class="row" id="tiers"></div>
+    <div class="row">
+      <button id="cheer">Crowd: goal</button>
+      <button id="groan">Crowd: calm</button>
+      <button id="bench">Run benchmark</button>
+    </div>
+    <pre id="report" hidden></pre>
+  </div>
+  <script>
+    // If the game fails to start, say so on the loading screen instead of hanging there.
+    (function () {
+      function show(msg) {
+        var n = document.getElementById('loading-note');
+        if (n && !document.getElementById('loading').classList.contains('done')) n.textContent = 'Could not start: ' + msg;
+        console.error('PK3ERROR ' + msg);
+      }
+      window.addEventListener('error', function (e) { show((e.message || 'script error') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
+      window.addEventListener('unhandledrejection', function (e) { show(String(e.reason && e.reason.message || e.reason)); });
+    })();
+  </script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 {
   "appId": "com.penaltywc.game",
   "appName": "Penalty Kings",
-  "webDir": "v2",
+  "webDir": "v3",
   "backgroundColor": "#06101f",
   "ios": {
     "backgroundColor": "#06101f",

@@ -1,15 +1,17 @@
 {
   "name": "penalty-world-cup-2026",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "Penalty Kings: Shootout v2: 3D swipe penalty shootout (web + iOS via Capacitor)",
+  "description": "Penalty Kings: Shootout v3: 3D swipe penalty shootout (web + iOS via Capacitor)",
   "scripts": {
     "serve": "python3 -m http.server 8000 --directory www",
     "sync": "cap sync",
     "ios": "cap open ios",
     "icons": "capacitor-assets generate --ios",
     "serve:v2": "python3 -m http.server 8000",
-    "test:v2": "node --test v2/test/*.test.mjs"
+    "test:v2": "node --test legacy/v2/test/*.test.mjs",
+    "test:v3": "node --test v3/test/*.test.mjs",
+    "serve:v3": "node scripts/dev-server.mjs 8000"
   },
   "dependencies": {
     "@capacitor/cli": "^8.4.0",
