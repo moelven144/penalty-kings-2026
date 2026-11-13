@@ -1,7 +1,7 @@
 """Compose captioned App Store screenshots from raw game captures.
 Usage: python3 scripts/store_screenshots.py <raw_dir> [out_dir]
   raw_dir holds iphone/<scene>.png and ipad/<scene>.png (or <scene>.png for both), taken from the
-  real game by scripts/store-shots.sh. Writes iphone69-NN-scene.png (1320x2868) and
+  real game by scripts/store-shots.sh. Writes iphone69-NN-scene.png (1320x2868), iphone63-NN-scene.png (1206x2622) and
   ipad13-NN-scene.png (2048x2732) to out_dir (default screenshots/v3/)."""
 import os
 import sys
@@ -49,4 +49,5 @@ def compose(W, H, name, l1, l2, idx, prefix, sub):
 
 for i, (n, a, b) in enumerate(SHOTS, 1):
     compose(1320, 2868, n, a, b, i, 'iphone69', 'iphone')
+    compose(1206, 2622, n, a, b, i, 'iphone63', 'iphone')  # App Store Connect's required medium-display slot
     compose(2048, 2732, n, a, b, i, 'ipad13', 'ipad')

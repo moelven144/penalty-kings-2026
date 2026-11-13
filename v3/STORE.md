@@ -67,19 +67,22 @@ Penalty Kings is an independent game and is not affiliated with any football fed
 
 ## What's New (v3.0)
 
-Penalty Kings has been rebuilt again, from the ground up.
+(As entered in App Store Connect on 13 Nov 2026. The version on the store before this was 1.0; 2.0 was never released.)
+
+Penalty Kings has been rebuilt from the ground up.
 • A new 3D stadium, crowd and players
 • New shooting: time the run-up, then swipe to aim, bend, chip or drive
 • Real ball physics, with posts, bar and a net that moves
 • New goalkeeping: read the striker's body, then dive
+• Challenge friends with a link: they face your exact penalties
+• Daily Challenge and Road to Glory with 300 levels
 • Slow-motion replays from beside the post
-• Your level, coins, streak and stars carry over
 • Still 100% free: no ads, nothing to buy
 
 ## Screenshots (`screenshots/v3/`)
 
 Taken from the real game running in the iOS Simulator (`scripts/store-shots.sh`), captions added by
-`scripts/store_screenshots.py`. iPhone 6.9" (1320×2868) and iPad 13" (2048×2732), upload in this order:
+`scripts/store_screenshots.py`. iPhone 6.9" (1320×2868) and iPad 13" (2048×2732), upload in this order. An `iphone63-*` set (1206×2622) is there too for App Store Connect's medium-display slot; it was not needed, the slot scales from the 6.9" set.
 
 | # | File | Caption |
 | --- | --- | --- |
