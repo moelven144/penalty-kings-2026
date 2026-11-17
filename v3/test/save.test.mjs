@@ -1,7 +1,7 @@
 // Saving rules from section 5 of v3/REBUILD_PLAN.md, and the honesty of both AIs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { KEEPER, playerDive, stayPut, handsAt, keeperBody, keeperObstacles } from '../js/core/save.js';
+import { KEEPER, playerDive, stayPut, handsAt, keeperBody, keeperObstacles, withAdjust } from '../js/core/save.js';
 import { LEVELS, strikerTraits, strikerPlan, strikerCues, strikerReact, strikerShot, keeperDive, keeperTraits, firstCommit, freeCrossing, keeperCrossing } from '../js/core/ai.js';
 import { launchFor } from '../js/core/shot.js';
 import { simulate, GOAL_HALF_WIDTH } from '../js/core/ball.js';
@@ -10,8 +10,8 @@ import { makeRng } from '../js/core/rng.js';
 const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg || ''} got ${a}, wanted ${b} +-${eps}`);
 const shot = (x, y, power, curve = 0, type = 'normal') => ({ target: { x, y }, power, curve, type });
 
-test('saving rule 2: the keeper dives at up to 6.2 m/s after a 70 ms push-off', () => {
-  const d = playerDive({ x: 3, y: 1.05 }, 0.2);
+test('saving rule 2: the computer keeper dives at 6.2 m/s after a 70 ms push-off', () => {
+  const d = { moves: [{ at: 0.2, x: 3, y: 1.05 }], boost: 1, grade: 'cpu' };
   assert.equal(handsAt(d, 0.2 + 0.069).moved, 0);
   near(handsAt(d, 0.2 + 0.07 + 0.25).moved, 6.2 * 0.25, 1e-6);
   near(handsAt(d, 0.2 + 0.07 + 0.25).vx, 6.2, 1e-6);
@@ -19,13 +19,43 @@ test('saving rule 2: the keeper dives at up to 6.2 m/s after a 70 ms push-off', 
   assert.equal(handsAt(d, 5).vx, 0);
 });
 
-test('saving rule 3: released 0 to 90 ms after the strike is a perfect dive (+15% speed)', () => {
+test('v3.1: the player keeper is quicker (7.2 m/s after 50 ms) and reaches further than the computer keeper', () => {
+  const d = playerDive({ x: 3, y: 1.05 }, 0.5);
+  assert.equal(handsAt(d, 0.5 + 0.049).moved, 0);
+  near(handsAt(d, 0.5 + 0.05 + 0.25).moved, 7.2 * 0.25, 1e-6);
+  const hand = (dive) => keeperBody(dive, 0).capsules.find((c) => c.name === 'hands').r;
+  assert.ok(hand(d) > hand({ moves: [], boost: 1 }));
+});
+
+test('saving rule 3: started 40 ms before to 140 ms after the strike is a perfect dive (+20% speed)', () => {
   assert.equal(playerDive({ x: 2, y: 1 }, 0).grade, 'perfect');
-  assert.equal(playerDive({ x: 2, y: 1 }, 0.09).grade, 'perfect');
-  assert.equal(playerDive({ x: 2, y: 1 }, 0.091).grade, 'normal');
-  assert.equal(playerDive({ x: 2, y: 1 }, -0.01).grade, 'early');
+  assert.equal(playerDive({ x: 2, y: 1 }, -0.04).grade, 'perfect');
+  assert.equal(playerDive({ x: 2, y: 1 }, 0.14).grade, 'perfect');
+  assert.equal(playerDive({ x: 2, y: 1 }, 0.141).grade, 'normal');
+  assert.equal(playerDive({ x: 2, y: 1 }, -0.041).grade, 'early');
   const p = playerDive({ x: 3, y: 1.05 }, 0.05);
-  near(handsAt(p, 0.05 + 0.07 + 0.2).moved, 6.2 * 1.15 * 0.2, 1e-6);
+  near(handsAt(p, 0.05 + 0.05 + 0.2).moved, 7.2 * 1.2 * 0.2, 1e-6);
+});
+
+test('v3.1: after seeing the ball the keeper steers the hands, but only a little, and only after 0.2 s', () => {
+  const d = withAdjust(playerDive({ x: 2.0, y: 1.0 }, 0), { x: 3.0, y: 1.0 });
+  assert.equal(d.moves.length, 2);
+  assert.ok(d.moves[1].at >= KEEPER.adjustAfter, 'not before a human reaction time');
+  near(d.moves[1].x, 2.0 + KEEPER.adjustReach, 1e-9, 'limited reach');
+  // the wrong way stays wrong
+  const wrong = withAdjust(playerDive({ x: -2.5, y: 1.0 }, 0), { x: 2.5, y: 1.0 });
+  assert.ok(wrong.moves[1].x < 0);
+  // before the adjustment time the hands go where the swipe said
+  near(handsAt(d, 0.15).x, handsAt(playerDive({ x: 2.0, y: 1.0 }, 0), 0.15).x, 1e-9);
+});
+
+test('v3.1: reading the striker now saves a fair share; guessing wrong still loses', () => {
+  const launch = launchFor(shot(2.6, 0.6, 0.6));
+  const cross = freeCrossing(launch);
+  const right = simulate(launch, keeperObstacles(withAdjust(playerDive({ x: 2.0, y: 1.0 }, 0.02), cross)));
+  assert.equal(right.outcome, 'save', 'right side, roughly right, adjusts onto it');
+  const wrong = simulate(launch, keeperObstacles(withAdjust(playerDive({ x: -2.0, y: 1.0 }, 0.02), cross)));
+  assert.equal(wrong.outcome, 'goal');
 });
 
 test('saving rule 3: later dives simply have less time, so far corners become unreachable', () => {
@@ -33,7 +63,7 @@ test('saving rule 3: later dives simply have less time, so far corners become un
   const launch = launchFor(corner);
   const cross = freeCrossing(launch);
   const early = simulate(launch, keeperObstacles(playerDive({ x: cross.x, y: cross.y }, 0.02)));
-  const late = simulate(launch, keeperObstacles(playerDive({ x: cross.x, y: cross.y }, 0.3)));
+  const late = simulate(launch, keeperObstacles(playerDive({ x: cross.x, y: cross.y }, 0.32)));
   assert.equal(early.outcome, 'save');
   assert.equal(late.outcome, 'goal');
 });
@@ -184,4 +214,27 @@ test('balance: a decent human shot is not auto-saved or auto-scored', () => {
     assert.ok(rate > 0.5, `${lv.name}: ${(rate * 100).toFixed(1)}%`);
     if (i === 3) assert.ok(rate < 0.85, `${lv.name}: ${(rate * 100).toFixed(1)}%`);
   });
+});
+
+test('v3.1 balance: a human-like keeper saves a fair share, but reacting alone stays hard', () => {
+  // the same human model used to tune v3.1 (see v3/README.md): a "reader" goes with the strike,
+  // right side 75% of the time; a "reactor" watches the ball and starts the swipe 0.26 s after the strike
+  const gauss = (r) => Math.sqrt(-2 * Math.log(r.next() + 1e-9)) * Math.cos(2 * Math.PI * r.next());
+  const rate = (skill, style, n = 500) => {
+    const r = makeRng(77); let stops = 0;
+    for (let i = 0; i < n; i++) {
+      let plan = strikerPlan(skill, r);
+      const cross = keeperCrossing(launchFor(strikerShot(plan)));
+      let s;
+      if (style === 'reader') { const side = r.next() < 0.75 ? Math.sign(cross.x || 1) : -Math.sign(cross.x || 1); s = { t: 0.02 + gauss(r) * 0.1, x: side * Math.max(1.2, Math.abs(cross.x) + gauss(r) * 0.6), y: cross.y + gauss(r) * 0.4 }; }
+      else s = { t: 0.26 + gauss(r) * 0.06, x: cross.x + gauss(r) * 0.5, y: cross.y + gauss(r) * 0.35 };
+      const p2 = strikerReact(plan, s.t, s.x); if (p2 !== plan) plan = p2;
+      const launch = launchFor(strikerShot(plan));
+      if (simulate(launch, keeperObstacles(withAdjust(playerDive({ x: s.x, y: s.y }, s.t), keeperCrossing(launch)))).outcome !== 'goal') stops++;
+    }
+    return stops / n;
+  };
+  const reader = rate(0.62, 'reader'); const reactor = rate(0.62, 'reactor');
+  assert.ok(reader > 0.35 && reader < 0.65, `reader ${(reader * 100).toFixed(0)}%`);
+  assert.ok(reactor > 0.06 && reactor < 0.3, `reactor ${(reactor * 100).toFixed(0)}%`);
 });

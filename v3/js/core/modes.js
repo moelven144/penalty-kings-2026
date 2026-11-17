@@ -171,25 +171,33 @@ export function starsFor(level, results) {
 export const isUnlocked = (glory, n) => n === 1 || (glory[`g${n - 1}`] || 0) >= 1;
 
 // ---------------------------------------------------------------- cosmetics
-// Unlocked by play (level, stars, streak) or by earned coins. Nothing is sold.
+// Looks only: nothing here changes how the game plays, so the Daily Challenge and
+// challenge links stay the same match for everyone. Bought with coins earned by
+// playing, or unlocked for free by a milestone. Nothing is sold for real money.
+//   price: coins; unlock: a milestone that also unlocks it (optional); look: what it changes
 export const ITEMS = [
-  { id: 'ball-classic', slot: 'ball', name: 'Classic', unlock: { free: true } },
-  { id: 'ball-night', slot: 'ball', name: 'Night Glow', unlock: { level: 5 } },
-  { id: 'ball-fire', slot: 'ball', name: 'Fire Trail', unlock: { coins: 600 } },
-  { id: 'ball-ice', slot: 'ball', name: 'Ice Cold', unlock: { scoredRun: 25 } },
-  { id: 'ball-gold', slot: 'ball', name: 'Golden King', unlock: { stars: 600 } },
-  { id: 'kit-home', slot: 'kit', name: 'Home', unlock: { free: true } },
-  { id: 'kit-away', slot: 'kit', name: 'Away', unlock: { level: 3 } },
-  { id: 'kit-retro', slot: 'kit', name: 'Retro', unlock: { coins: 800 } },
-  { id: 'kit-neon', slot: 'kit', name: 'Neon', unlock: { streak: 14 } },
-  { id: 'gloves-basic', slot: 'gloves', name: 'Basic', unlock: { free: true } },
-  { id: 'gloves-wall', slot: 'gloves', name: 'The Wall', unlock: { saves: 100 } },
-  { id: 'celebration-fist', slot: 'celebration', name: 'Fist Pump', unlock: { free: true } },
-  { id: 'celebration-slide', slot: 'celebration', name: 'Knee Slide', unlock: { level: 8 } },
-  { id: 'celebration-shush', slot: 'celebration', name: 'Shush', unlock: { coins: 500 } },
-  { id: 'celebration-crown', slot: 'celebration', name: 'The Crown', unlock: { titles: 1 } },
-  { id: 'stadium-night', slot: 'stadium', name: 'Floodlit Night', unlock: { free: true } },
-  { id: 'stadium-rain', slot: 'stadium', name: 'Rainy Night', unlock: { level: 10 } },
-  { id: 'stadium-snow', slot: 'stadium', name: 'Winter Classic', unlock: { stars: 150 } },
-  { id: 'stadium-neon', slot: 'stadium', name: 'Neon Arena', unlock: { coins: 1500 } },
+  { id: 'ball-classic', slot: 'ball', name: 'Classic', price: 0, unlock: { free: true }, look: { pent: '#12161e', hex: '#f4f6fa', seam: '#262626' } },
+  { id: 'ball-night', slot: 'ball', name: 'Night Glow', price: 150, unlock: { level: 5 }, look: { pent: '#0b1020', hex: '#1d2a44', seam: '#7ff4ff', glow: '#3fe0ff' } },
+  { id: 'ball-fire', slot: 'ball', name: 'Fire Trail', price: 400, look: { pent: '#7a0d00', hex: '#ff7a1a', seam: '#ffd23f', trail: '#ff6a00' } },
+  { id: 'ball-ice', slot: 'ball', name: 'Ice Cold', price: 400, unlock: { scoredRun: 25 }, look: { pent: '#1f5f9e', hex: '#e8f6ff', seam: '#9fd8ff', trail: '#9fe6ff' } },
+  { id: 'ball-gold', slot: 'ball', name: 'Golden King', price: 1200, unlock: { stars: 600 }, look: { pent: '#3a2a05', hex: '#ffcf3a', seam: '#7a5a00', metal: true } },
+  { id: 'kit-home', slot: 'kit', name: 'Home', price: 0, unlock: { free: true }, look: { style: 'home' } },
+  { id: 'kit-away', slot: 'kit', name: 'Away', price: 100, unlock: { level: 3 }, look: { style: 'away' } },
+  { id: 'kit-retro', slot: 'kit', name: 'Retro Hoops', price: 300, look: { style: 'retro' } },
+  { id: 'kit-black', slot: 'kit', name: 'Midnight', price: 600, look: { style: 'black' } },
+  { id: 'kit-neon', slot: 'kit', name: 'Neon', price: 800, unlock: { streak: 14 }, look: { style: 'neon' } },
+  { id: 'gloves-basic', slot: 'gloves', name: 'Basic', price: 0, unlock: { free: true }, look: { color: '#f4f4f4' } },
+  { id: 'gloves-lime', slot: 'gloves', name: 'Lime', price: 150, look: { color: '#b6ff2e' } },
+  { id: 'gloves-flame', slot: 'gloves', name: 'Flame', price: 200, look: { color: '#ff4a1c' } },
+  { id: 'gloves-wall', slot: 'gloves', name: 'The Wall', price: 500, unlock: { saves: 100 }, look: { color: '#ffcf3a' } },
+  { id: 'celebration-fist', slot: 'celebration', name: 'Arms Up', price: 0, unlock: { free: true }, look: { pose: 'armsUp' } },
+  { id: 'celebration-slide', slot: 'celebration', name: 'Knee Slide', price: 250, unlock: { level: 8 }, look: { pose: 'slide' } },
+  { id: 'celebration-shush', slot: 'celebration', name: 'Shush', price: 300, look: { pose: 'shush' } },
+  { id: 'celebration-crown', slot: 'celebration', name: 'The Crown', price: 600, unlock: { titles: 1 }, look: { pose: 'crown' } },
+  { id: 'stadium-night', slot: 'stadium', name: 'Floodlit Night', price: 0, unlock: { free: true }, look: { weather: 'clear' } },
+  { id: 'stadium-rain', slot: 'stadium', name: 'Rainy Night', price: 500, unlock: { level: 10 }, look: { weather: 'rain' } },
+  { id: 'stadium-snow', slot: 'stadium', name: 'Winter Classic', price: 500, unlock: { stars: 150 }, look: { weather: 'snow' } },
+  { id: 'stadium-neon', slot: 'stadium', name: 'Neon Arena', price: 1000, look: { weather: 'neon' } },
 ];
+export const SLOTS = ['ball', 'kit', 'gloves', 'celebration', 'stadium'];
+export const itemById = (id) => ITEMS.find((it) => it.id === id) || null;

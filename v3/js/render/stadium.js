@@ -234,10 +234,28 @@ export function createStadium(scene, tier) {
 
   scene.fog = new THREE.FogExp2(new THREE.Color(0.012, 0.022, 0.05), 0.0026);
 
+  const base = {
+    lamp: lampMat.color.clone(), led: ledMat.color.clone(), key: key.color.clone(), fill: fill.color.clone(), rim: rim.color.clone(),
+    fog: scene.fog.color.clone(), keyI: key.intensity,
+  };
   return {
     group,
     update(dt) {
       led.offset.x = (led.offset.x + dt * 0.012) % 1;
+    },
+    /** Lighting mood: 'clear' (the floodlit night), 'rain' (darker, colder), 'snow' (cold, brighter fog) or 'neon'. */
+    setMood(mood) {
+      lampMat.color.copy(base.lamp); ledMat.color.copy(base.led); key.color.copy(base.key); fill.color.copy(base.fill); rim.color.copy(base.rim);
+      scene.fog.color.copy(base.fog); key.intensity = base.keyI;
+      if (mood === 'neon') {
+        lampMat.color.setRGB(3.2, 0.9, 3.4); ledMat.color.setRGB(0.9, 2.4, 2.6);
+        fill.color.setRGB(0.4, 0.9, 1.4); rim.color.setRGB(1.5, 0.45, 1.3); key.color.setRGB(0.95, 0.85, 1.0);
+        scene.fog.color.setRGB(0.05, 0.01, 0.08);
+      } else if (mood === 'rain') {
+        key.intensity = base.keyI * 0.85; fill.color.setRGB(0.7, 0.82, 1.0); scene.fog.color.setRGB(0.03, 0.04, 0.06);
+      } else if (mood === 'snow') {
+        fill.color.setRGB(0.85, 0.92, 1.05); scene.fog.color.setRGB(0.06, 0.07, 0.1);
+      }
     },
     /** Bake the lit stadium into the scene's reflection/ambient environment. */
     bakeEnvironment(renderer) {

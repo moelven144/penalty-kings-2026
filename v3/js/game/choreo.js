@@ -114,13 +114,52 @@ export function idlePose(at, clock, face = -1) {
   };
 }
 
-/** Arms up, bouncing: a goal for the striker, a save for the keeper. */
-export function celebratePose(at, clock, face = -1) {
+/**
+ * A celebration: a goal for the striker, a save for the keeper. `pose` comes from the
+ * locker: 'armsUp' (default), 'slide' (knee slide), 'shush' (finger to the lips), 'crown'.
+ * `t` is seconds since the celebration began (the slide travels, then holds).
+ */
+export function celebratePose(at, clock, face = -1, pose = 'armsUp', t = 1) {
+  if (pose === 'slide') return slidePose(at, face, t);
+  if (pose === 'shush') return shushPose(at, clock, face);
+  if (pose === 'crown') return crownPose(at, clock, face);
   const p = idlePose(at, clock, face);
   const hop = Math.abs(Math.sin(clock * 6)) * 0.14;
   p.pelvis.y += hop; p.footL.y += hop; p.footR.y += hop;
   p.handL = v(at.x - 0.42 * -face, 1.95 + hop, at.z - face * 0.05);
   p.handR = v(at.x + 0.42 * -face, 1.95 + hop, at.z - face * 0.05);
+  return p;
+}
+
+/** On both knees, sliding forward and leaning back, arms wide. */
+function slidePose(at, face, t) {
+  const k = 1 - Math.pow(1 - Math.min(1, t / 0.7), 2); // decelerating slide
+  const z = at.z + face * 1.2 * k; // slides the way he faces
+  const kneeY = 0.13;
+  return {
+    pelvis: v(at.x, 0.62, z), torso: norm(v(0, 1, -face * 0.35)), yaw: face > 0 ? Math.PI : 0, hipTwist: 0,
+    // feet behind, knees on the grass: the ankles sit back and low
+    footL: v(at.x - 0.16, kneeY, z - face * 0.55), footR: v(at.x + 0.16, kneeY, z - face * 0.55),
+    footYawL: face > 0 ? Math.PI : 0, footYawR: face > 0 ? Math.PI : 0, toeR: 1.2, toeL: 1.2,
+    handL: v(at.x - 0.85 * -face, 1.55, z - face * 0.15), handR: v(at.x + 0.85 * -face, 1.55, z - face * 0.15),
+  };
+}
+
+/** Standing tall, one finger to the lips, the other arm out to the crowd. */
+function shushPose(at, clock, face) {
+  const p = idlePose(at, clock * 0.5, face);
+  p.torso = norm(v(0, 1, face * 0.05));
+  p.handR = v(at.x + 0.03 * -face, 1.6, at.z + face * 0.16);
+  p.handL = v(at.x - 0.62 * -face, 1.25 + Math.sin(clock * 2) * 0.03, at.z + face * 0.1);
+  return p;
+}
+
+/** Hands together above the head, fingers up: a crown. */
+function crownPose(at, clock, face) {
+  const p = idlePose(at, clock, face);
+  const bob = Math.sin(clock * 3) * 0.02;
+  p.handL = v(at.x - 0.11 * -face, 2.05 + bob, at.z + face * 0.02);
+  p.handR = v(at.x + 0.11 * -face, 2.05 + bob, at.z + face * 0.02);
   return p;
 }
 

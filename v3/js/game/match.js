@@ -7,7 +7,7 @@ import { GOAL_Z, BALL_R } from '../render/layout.js';
 import { RULES, canStart, readSwipe } from '../core/gesture.js';
 import { launchFor, SHOT_TYPES } from '../core/shot.js';
 import { newBall, stepBall, ballDone, classify, STEP, SPOT_DISTANCE, GOAL_HALF_WIDTH, GOAL_HEIGHT, BALL_RADIUS, OBSTACLE_PARTS } from '../core/ball.js';
-import { KEEPER, playerDive, stayPut, keeperBody } from '../core/save.js';
+import { KEEPER, playerDive, stayPut, keeperBody, withAdjust } from '../core/save.js';
 import { strikerPlan, strikerReact, strikerShot, keeperDive, keeperCrossing, firstCommit } from '../core/ai.js';
 import { strikerPose, idlePose, celebratePose, dejectedPose, keeperPose, SWING } from './choreo.js';
 import { createShootInput } from './input.js';
@@ -26,6 +26,8 @@ export function createMatch(w) {
   let last = null; // the last finished kick, for the replay
   let clock = 0;
   let aidOn = true;
+  const preview = { pose: null }; // the locker shows a celebration on the waiting striker
+  let previewT = 0;
 
   // ---- screen <-> goal plane
   const ray = new THREE.Raycaster();
@@ -65,14 +67,16 @@ export function createMatch(w) {
     },
     onStart(p, timeStamp) {
       if (w.onTouch) w.onTouch();
-      if (state !== 'aim') return; // a keeper's swipe: nothing happens until it is released
+      if (k && k.keeperHuman) { k.touchStamp = timeStamp; return; } // a keeper's swipe: the dive starts once the finger moves
+      if (state !== 'aim') return;
       state = 'runup'; k.t0 = timeStamp;
       haptics.play('runup');
       w.onHint('Swipe at the goal · let go as the foot plants');
       ring.visible = ringGoal.visible = aidOn;
     },
     onMove(samples) {
-      if (!k || k.keeperHuman || !aidOn || samples.length < 2) return;
+      if (k && k.keeperHuman) { keeperSwipe(samples, false); return; }
+      if (!k || !aidOn || samples.length < 2) return;
       const p = samples[samples.length - 1];
       const a = project(p.x, p.y);
       marker.position.set(a.x, Math.max(0.05, a.y), GOAL_Z + 0.02);
@@ -81,7 +85,7 @@ export function createMatch(w) {
     onEnd(samples, endStamp) {
       marker.visible = false;
       if (!k) return;
-      if (k.keeperHuman) { playerSwipe(samples, endStamp); return; }
+      if (k.keeperHuman) { keeperSwipe(samples, true); return; }
       if (state !== 'runup' || k.shot) return;
       const shot = readSwipe(samples, project, k.seed);
       if (!shot) { cancelRun('Touch the ball, then swipe towards the goal'); return; }
@@ -101,21 +105,46 @@ export function createMatch(w) {
   }
 
   /** The player in goal: the swipe's direction and length, on the goal plane, from where the keeper stands. */
-  function playerSwipe(samples, endStamp) {
-    if (k.dived || samples.length < 2) return;
+  /**
+   * The player in goal. The dive starts as soon as the finger has clearly moved (not when it
+   * lifts, which cost about 0.1 s), heads where the swipe points, follows the finger until it
+   * lifts, and once the keeper has seen the ball the hands can still be steered a little.
+   * @param final true when the finger has lifted
+   */
+  function keeperSwipe(samples, final) {
+    if (k.locked || samples.length < 2 || k.touchStamp == null) return;
     const a = samples[0]; const b = samples[samples.length - 1];
-    if (Math.hypot(b.x - a.x, b.y - a.y) < 0.03) return; // a tap is not a dive
+    const moved = Math.hypot(b.x - a.x, b.y - a.y);
+    if (moved < (final ? 0.03 : 0.045)) return; // a tap or a twitch is not a dive
     const pa = project(a.x, a.y); const pb = project(b.x, b.y);
     const target = { x: KEEPER.ready.x + (pb.x - pa.x), y: KEEPER.ready.y + (pb.y - pa.y) };
-    const rel = (endStamp - k.t0) / 1000 - k.strikeAt; // seconds relative to the strike
-    k.dive = playerDive(target, rel);
-    k.dived = true;
-    // going early against a striker who can read it: he switches side
-    if (state === 'runup' && k.plan) {
-      const p2 = strikerReact(k.plan, rel, target.x);
-      if (p2 !== k.plan) { k.plan = p2; k.side = p2.side; k.switched = true; }
+    if (!k.dived) {
+      // when the finger started moving, relative to the strike
+      let startT = b.t;
+      for (const sm of samples) { if (Math.hypot(sm.x - a.x, sm.y - a.y) > 0.012) { startT = sm.t; break; } }
+      const rel = (k.touchStamp + startT * 1000 - k.t0) / 1000 - k.strikeAt;
+      k.dive = playerDive(target, rel);
+      k.dived = true;
+      // going early against a striker who can read it: he switches side
+      if (state === 'runup' && k.plan) {
+        const p2 = strikerReact(k.plan, rel, target.x);
+        if (p2 !== k.plan) { k.plan = p2; k.side = p2.side; k.switched = true; }
+      }
+      haptics.play(k.dive.grade === 'perfect' ? 'perfect' : 'runup');
+    } else {
+      const m = k.dive.moves[0];
+      const d = playerDive(target, m.at).moves[0];
+      m.x = d.x; m.y = d.y; // the dive follows the finger
     }
-    if (k.dive.grade === 'perfect') haptics.play('perfect'); else haptics.play('runup');
+    if (final) { k.locked = true; adjustDive(); }
+  }
+
+  /** Once the swipe is finished and the ball has been struck, let the hands steer towards it. */
+  function adjustDive() {
+    if (k && k.keeperHuman && k.locked && !k.adjusted && k.dive && k.crossAtKeeper) {
+      k.dive = withAdjust(k.dive, k.crossAtKeeper);
+      k.adjusted = true;
+    }
   }
 
   const cues = () => ({ approach: k.approach, side: k.side, hipsFrom: k.hipsFrom });
@@ -126,6 +155,7 @@ export function createMatch(w) {
     k.shotUsed = shot;
     k.launch = launchFor(shot);
     k.crossAtKeeper = keeperCrossing(k.launch);
+    adjustDive();
     if (k.keeperMode === 'cpu') {
       // the computer keeper: reads what the striker showed, judges the ball only after its reaction time
       const seen = k.plan || { cues: { approach: k.approach }, side: k.side || 1, traits: { hipsLead: 0.15 } };
@@ -191,7 +221,9 @@ export function createMatch(w) {
       k.simClock -= STEP;
       if (!k.crossing && pz < SPOT_DISTANCE && s.p.z >= SPOT_DISTANCE) k.crossing = { x: s.p.x, y: s.p.y, t: s.t };
       // a keeper who has not moved puts his hands to a ball that comes near him
-      if (k.keeperHuman && !k.dived && !k.reflexed && s.t >= KEEPER.reflex) { k.reflexed = true; k.dive = stayPut(k.crossAtKeeper); }
+      // a finger still down when the keeper has seen the ball: the dive is what it is, now steer
+      if (k.keeperHuman && k.dived && !k.adjusted && s.t >= KEEPER.adjustAfter) { k.locked = true; adjustDive(); }
+      if (k.keeperHuman && !k.dived && !k.reflexed && s.t >= KEEPER.reflex) { k.reflexed = true; k.dive = stayPut(k.crossAtKeeper, KEEPER.player); }
     }
     for (; k.seen < s.events.length; k.seen++) onEvent(s.events[k.seen]);
     ball.position.set(s.p.x, s.p.y, -s.p.z);
@@ -212,6 +244,8 @@ export function createMatch(w) {
     get kick() { return k; },
     get lastKick() { return last; },
     set aidOn(v) { aidOn = !!v; },
+    /** Locker preview: play a celebration on the waiting striker (null to stop). */
+    previewCelebration(pose) { preview.pose = pose; previewT = 0; },
     get aidOn() { return aidOn; },
     project, ballOnScreen,
 
@@ -259,7 +293,7 @@ export function createMatch(w) {
     /** Development: dive as if the player had swiped (the player must be in goal). rel = seconds relative to the strike. */
     autoDive(target, rel) {
       if (!k || !k.keeperHuman || k.dived) return false;
-      k.dive = playerDive(target, rel); k.dived = true;
+      k.dive = playerDive(target, rel); k.dived = true; k.locked = true; adjustDive();
       return true;
     },
 
@@ -299,6 +333,7 @@ export function createMatch(w) {
     update(now, dt) {
       clock += dt;
       if (state === 'idle' || !k) {
+        if (preview.pose) { previewT += dt; if (previewT > 3.2) previewT = 0; striker.solve(celebratePose(STRIKER_HOME, clock, -1, preview.pose, previewT)); } else
         striker.solve(idlePose(STRIKER_HOME, clock, -1));
         keeper.solve(keeperPose(NO_DIVE, -1, clock));
       } else if (state === 'aim') {
@@ -335,10 +370,11 @@ export function createMatch(w) {
         const st = (now - k.t0) / 1000;
         const scored = k.result.outcome === 'goal';
         const sp = strikerPose(Math.min(st, k.strikeAt + 0.45), k.strikeAt, cues());
-        if (k.afterT > 0.5) striker.solve((scored ? celebratePose : dejectedPose)({ x: sp.pelvis.x, z: sp.pelvis.z }, clock, -1));
+        const myPose = k.celebration || 'armsUp';
+        if (k.afterT > 0.5) striker.solve(scored ? celebratePose({ x: sp.pelvis.x, z: sp.pelvis.z }, clock, -1, k.shooterHuman ? myPose : 'armsUp', k.afterT - 0.5) : dejectedPose({ x: sp.pelvis.x, z: sp.pelvis.z }, clock, -1));
         else striker.solve(sp);
         if (k.keeperMode !== 'none') {
-          if (k.result.outcome === 'save' && k.afterT > 0.9) keeper.solve(celebratePose({ x: 0, z: -KEEPER.lineZ }, clock, 1));
+          if (k.result.outcome === 'save' && k.afterT > 0.9) keeper.solve(celebratePose({ x: 0, z: -KEEPER.lineZ }, clock, 1, k.keeperHuman ? (k.celebration || 'armsUp') : 'armsUp', k.afterT - 0.9));
           else poseKeeper(k.sim.t);
         }
       } else if (state === 'replay') {

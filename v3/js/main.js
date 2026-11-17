@@ -13,6 +13,7 @@ import { createNet } from './render/net.js';
 import { loadCharacters, createPlayer } from './render/character.js';
 import { createMatch, SHOT_TYPES } from './game/match.js';
 import { createApp } from './game/app.js';
+import { setBallLook, createTrail, createWeather } from './render/looks.js';
 import { sfx } from './game/audio.js';
 
 const $ = (id) => document.getElementById(id);
@@ -56,6 +57,13 @@ const viewer = params.has('viewer') || (!!auto && auto.mode !== 'play' && !param
 let match = null;
 let app = null;
 const charactersReady = viewer ? Promise.resolve(null) : loadCharacters();
+const trail = createTrail(scene);
+const weather = createWeather(scene, tier);
+/** What the locker can change in the scene. */
+const looks = {
+  ball: (look) => setBallLook(ball, look),
+  stadium: (look) => { const w = look.weather || 'clear'; weather.set(w === 'neon' ? 'clear' : w); stadium.setMood(w); pitch.setSurface(w); },
+};
 function startGame(assets) {
   const striker = createPlayer(scene, assets, { hair: 1 });
   const keeper = createPlayer(scene, assets, { keeper: true, hair: 0 });
@@ -64,7 +72,7 @@ function startGame(assets) {
     onHint: (t) => { $('hint').textContent = t; },
     onStrike: (s) => { $('sub').textContent = `${SHOT_TYPES[s.type].label} · ${s.kmh} km/h · ${{ perfect: 'Perfect strike', clean: 'Clean strike', rushed: 'Rushed', scuffed: 'Scuffed' }[s.grade]}`; },
   });
-  app = createApp({ canvas, camera, match, crowd, rig, striker, keeper, gfx, tierName, storage: storage || { getItem: () => null, setItem: () => {} }, params });
+  app = createApp({ canvas, camera, match, crowd, rig, striker, keeper, gfx, tierName, looks, storage: storage || { getItem: () => null, setItem: () => {} }, params });
 }
 
 // ---- frame loop with a rolling frame-time window
@@ -89,8 +97,13 @@ function frame(now) {
   pitch.update(dt, clock);
   if (!window.__pk3Freeze) crowd.update(dt);
   rig.update(dt, clock);
+  // development: hold a frame still when a test-supplied condition is met (screenshots)
+  if (window.__pk3FreezeWhen && window.__pk3FreezeWhen()) { window.__pk3Freeze = true; window.__pk3FreezeWhen = null; }
   if (match && !window.__pk3Freeze) match.update(now, dt);
   else { ball.rotation.y += dt * 0.2; net.update(dt, null); }
+  if (!window.__pk3Freeze) weather.update(dt);
+  const flying = !!(match && match.kick && match.kick.sim && (match.state === 'flight' || match.state === 'replay' || (match.state === 'after' && match.kick.afterT < 1)));
+  trail.update(ball, flying, gfx.size.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)));
   gfx.render();
   if (match) { match.input.render(gfx.renderer, performance.now()); app.tick(); }
 

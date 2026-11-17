@@ -59,7 +59,10 @@ export function netTexture() {
  * A classic panelled football as an equirectangular map: 12 dark pentagons
  * (icosahedron vertices), 20 light hexagons, stitched seams. Original artwork.
  */
-export function ballTexture(size = 512) {
+/** @param look {pent, hex, seam} colours (css), default the classic white ball */
+export function ballTexture(size = 512, look = {}) {
+  const rgb = (c, d) => { const n = parseInt((c || d).slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const PENT = rgb(look.pent, '#12161e'); const HEX = rgb(look.hex, '#f4f6fa'); const SEAM = rgb(look.seam, '#262626');
   const w = size;
   const h = size / 2;
   const phi = (1 + Math.sqrt(5)) / 2;
@@ -93,7 +96,7 @@ export function ballTexture(size = 512) {
         const isPent = centres[bi].pent;
         const shade = 0.92 + 0.08 * Math.sin(x * 12.9898 + y * 78.233) * 0.5;
         let r; let gg; let b;
-        if (seam) { r = gg = b = 38; } else if (isPent) { r = 18; gg = 22; b = 30; } else { r = 244 * shade; gg = 246 * shade; b = 250 * shade; }
+        if (seam) { [r, gg, b] = SEAM; } else if (isPent) { [r, gg, b] = PENT; } else { r = HEX[0] * shade; gg = HEX[1] * shade; b = HEX[2] * shade; }
         const o = (y * w + x) * 4;
         img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = b; img.data[o + 3] = 255;
       }

@@ -203,6 +203,15 @@ async function playScript(ctx, tag) {
   }
   await wait(500);
   await snap('menu');
+  // v3.1: wear some locker looks so the run shows them (development only; not saved)
+  if (new URLSearchParams(location.search || window.__PK3_QUERY || '').has('looks')) {
+    app.profile.coins = 5000;
+    for (const id of ['ball-fire', 'kit-neon', 'gloves-lime', 'celebration-crown', 'stadium-rain']) app.buyOrWear(id);
+    app.locker('ball'); await wait(1500); await snap('locker_ball');
+    app.locker('kit'); await wait(1200); await snap('locker_kit');
+    app.locker('stadium'); await wait(1200); await snap('locker_stadium');
+    app.toMenu(); await wait(500);
+  }
   app.start('quick');
   const quick = await drive('quick', () => app.game.phase === 'over');
   await wait(600); await snap('quick_end');

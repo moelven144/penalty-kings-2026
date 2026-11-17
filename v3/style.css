@@ -87,4 +87,23 @@ body.shots #hint, body.shots #mute, body.shots #quit { display: none; }
 #dev button.on { border-color: var(--gold); color: var(--gold); }
 #report { margin: 0; padding: 10px; max-height: 38vh; overflow: auto; border-radius: 12px; background: var(--glass); border: 1px solid var(--line);
   font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
+/* locker: sits low so the player, ball or stadium shows above it */
+#panel.locker { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); max-height: 56%; padding: 16px 16px 12px; }
+#panel.locker h1 { font-size: 22px; margin-bottom: 2px; }
+#panel.locker p { margin-bottom: 10px; font-size: 14px; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; margin: 0 -4px 6px; padding: 0 4px 4px; }
+#panel .tabs button { width: auto; flex: 0 0 auto; min-height: 36px; margin: 0; padding: 0 12px; font-size: 13px; border-radius: 18px;
+  background: transparent; color: var(--muted); border: 1px solid var(--line); }
+#panel .tabs button.on { background: var(--gold); color: #06101f; border-color: var(--gold); }
+.item { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+.item.previewing { background: rgba(255, 201, 51, 0.08); border-radius: 10px; }
+.swatch { flex: 0 0 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.25); }
+.item .label { flex: 1; min-width: 0; font-weight: 800; font-size: 15px; }
+.item .label small { display: block; font-weight: 500; font-size: 12px; color: var(--muted); margin-top: 2px; }
+#panel .item button { width: auto; min-width: 92px; min-height: 38px; margin: 0; font-size: 14px; padding: 0 10px; }
+#panel .item button.wearing { background: transparent; color: var(--green); border: 1.5px solid var(--green); }
+#panel .item button.wear { background: #ffffff; }
+#panel .item button.short { background: transparent; color: var(--muted); border: 1.5px solid rgba(255, 255, 255, 0.25); }
+.item-list { max-height: 30vh; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+
 [hidden] { display: none !important; }
