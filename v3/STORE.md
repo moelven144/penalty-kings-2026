@@ -51,6 +51,7 @@ PLAY FOR YOUR NATION
 • 48 national teams, picked in one tap
 • A new Daily Challenge every day, the same match for everyone in the world
 • Keep your streak alive, level up and earn coins with every goal and save
+• Spend your coins in the Locker: new balls, kits, gloves, celebrations and stadium weather (looks only, never an advantage)
 
 ROAD TO GLORY
 • 300 levels across five regions, with three stars to earn in each
@@ -64,6 +65,12 @@ UNDER THE LIGHTS
 Plays offline. Made for one thumb.
 
 Penalty Kings is an independent game and is not affiliated with any football federation, league, club or tournament.
+
+## What's New (v3.1, for the next submission)
+
+• Saving is easier: your keeper reacts as soon as you swipe, and can adjust his hands once he sees the ball
+• New Locker: spend your coins on balls, kits, gloves, celebrations, and rain, snow or neon stadiums
+• Still 100% free: coins are earned by playing, never sold
 
 ## What's New (v3.0)
 

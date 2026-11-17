@@ -137,7 +137,9 @@ test('levels unlock in order and replays only pay for new stars', () => {
 
 test('every cosmetic is earnable by playing (nothing for sale)', () => {
   for (const it of ITEMS) {
-    const keys = Object.keys(it.unlock);
-    assert.ok(keys.every((k) => ['free', 'level', 'coins', 'stars', 'streak', 'saves', 'scoredRun', 'titles'].includes(k)), it.id);
+    // coins only come from playing; a milestone is an extra, free way in
+    assert.ok(Number.isInteger(it.price) && it.price >= 0, it.id);
+    const keys = Object.keys(it.unlock || {});
+    assert.ok(keys.every((k) => ['free', 'level', 'stars', 'streak', 'saves', 'scoredRun', 'titles'].includes(k)), it.id);
   }
 });

@@ -2,7 +2,18 @@
 
 The console-style rebuild. Plan: `REBUILD_PLAN.md`. Assets and licences: `ASSETS.md`.
 
-**Status: version 3.0, build 7.** The whole game is in: quick shootout, Daily Challenge, Road to Glory,
+**Status: version 3.1 (build 8) in progress on branch `v3.1/feedback`. 3.0 (build 7) was submitted to App Review on 13 Nov 2026.**
+
+v3.1, from the owner's first play: saving was too hard, and coins had nothing to buy.
+- **Saving:** a player who reacted to the ball saved about 5% of shots and one who read the striker correctly about 15%.
+  The player's keeper now starts the dive as soon as the finger moves (not when it lifts), is quicker (7.2 m/s after
+  50 ms instead of 6.2 m/s after 70 ms), reaches further, has a wider perfect-dive window, and can steer the hands up to
+  0.5 m towards the ball 0.2 s after the strike. Wrong side stays wrong. Measured with a simulated player against a
+  Pro striker: reading 48% (was 14%), reacting 12% (was 5%). The computer's keeper is unchanged, so scoring is not harder.
+- **Locker:** coins buy looks only (ball designs and trails, kits, gloves, celebrations, rain, snow and neon
+  stadiums). Nothing changes play, so the Daily Challenge and challenge links stay fair. Milestones still unlock items free.
+
+ The whole game is in: quick shootout, Daily Challenge, Road to Glory,
 challenge links, tutorial, settings, share clips. Built and archived for the App Store; the upload is
 waiting for an Apple account to be signed in to Xcode (see `../PUBLISH.md`). What was and was not
 verified, and where it falls short of the plan: `RULES_CHECK.md`.

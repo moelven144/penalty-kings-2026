@@ -16,6 +16,11 @@ export const SHOTS = {
   keep: { pos: V(0.3, 3.5, 9.4), look: V(0, 1.1, GOAL_Z), fov: 30, hfov: 34 },
   replayL: { pos: V(-5.4, 0.85, GOAL_Z + 2.6), look: V(0.2, 1.2, GOAL_Z - 0.6), fov: 30, hfov: 40 },
   replayR: { pos: V(5.4, 0.85, GOAL_Z + 2.6), look: V(-0.2, 1.2, GOAL_Z - 0.6), fov: 30, hfov: 40 },
+  // the locker: the waiting striker and the ball from the front, and the keeper's gloves
+  lockerPlayer: { pos: V(0.7, 0.7, -1.2), look: V(-0.8, -0.35, 2.2), fov: 46, hfov: 36 },
+  lockerBall: { pos: V(0.1, 0.8, -2.1), look: V(0.0, -1.55, 2.6), fov: 30, hfov: 18 },
+  lockerKeeper: { pos: V(0.45, 1.0, GOAL_Z + 4.6), look: V(0, -0.7, GOAL_Z + 0.3), fov: 40, hfov: 30 },
+  lockerCelebrate: { pos: V(0.9, 1.0, -2.9), look: V(-1.0, -0.55, 2.0), fov: 46, hfov: 40 },
   striker: { pos: V(0.6, 1.72, 3.3), look: V(0, 2.6, GOAL_Z), fov: 46, hfov: 34 },
   keeper: { pos: V(0, 1.6, GOAL_Z - 1.7), look: V(0, 1.0, 0), fov: 52, hfov: 70 }, // inside the goal, in front of the back net
   side: { pos: V(10.5, 1.15, GOAL_Z + 5.2), look: V(-0.5, 1.2, GOAL_Z + 0.4), fov: 30, hfov: 34 },
@@ -56,7 +61,8 @@ export function createCameraRig(camera) {
       if (shot === 'orbit') {
         orbitT += dt * 0.085;
         const r = 27;
-        tp.set(Math.sin(orbitT) * r, 5.5 + Math.sin(orbitT * 0.7) * 2.2, GOAL_Z + 7 + Math.cos(orbitT) * r);
+        // an ellipse that stays inside the bowl: it used to swing 11 m into the stand behind the goal
+        tp.set(Math.sin(orbitT) * r, 6.5 + Math.sin(orbitT * 0.7) * 1.5, GOAL_Z + 12 + Math.cos(orbitT) * 16);
         tl.set(0, 1.6, GOAL_Z + 3);
         target = { fov: 40, hfov: 50 };
       } else {

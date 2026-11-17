@@ -1,7 +1,8 @@
-// Penalty Kings v2 — player profile: progression, streaks, unlocks, stats.
-// Everything is EARNED. There is nothing to buy, no ads and no currency
-// for sale (decision: 100% free). Stored on-device only.
+// Penalty Kings v3 — player profile: progression, streaks, unlocks, stats, locker.
+// Everything is EARNED. Coins come only from playing and buy only looks; there
+// is no currency for sale and no ads (decision: 100% free). Stored on-device only.
 
+import { ITEMS, itemById } from './modes.js';
 const KEY = 'pk_profile_v3';
 const V2_KEY = 'pk_profile_v2';
 const V1_KEY = 'pwc2026_save_v1';
@@ -70,7 +71,7 @@ export function sanitise(raw) {
     p.daily.wins = num(raw.daily.wins);
   }
   if (isObj(raw.glory)) for (const k in raw.glory) p.glory[k] = Math.min(3, Math.max(0, num(raw.glory[k])));
-  if (Array.isArray(raw.owned)) p.owned = [...new Set([...p.owned, ...raw.owned.filter((x) => typeof x === 'string')])];
+  if (Array.isArray(raw.owned)) p.owned = [...new Set([...p.owned, ...raw.owned.filter((x) => typeof x === 'string' && itemById(x))])];
   if (isObj(raw.equipped)) for (const k in p.equipped) if (p.owned.includes(raw.equipped[k])) p.equipped[k] = raw.equipped[k];
   if (isObj(raw.settings)) {
     p.settings.muted = !!raw.settings.muted;
@@ -244,3 +245,55 @@ export function recordGlory(p, levelId, stars) {
 }
 
 export const totalStars = (p) => Object.values(p.glory).reduce((a, b) => a + b, 0);
+
+// ---------------------------------------------------------------- locker (looks only)
+
+/** Has the player reached an item's free milestone? (one condition per item) */
+export function milestoneMet(p, unlock, levelOf = levelFromXp) {
+  if (!unlock) return false;
+  if (unlock.free) return true;
+  if (unlock.level) return levelOf(p.xp) >= unlock.level;
+  if (unlock.stars) return totalStars(p) >= unlock.stars;
+  if (unlock.streak) return p.streak.best >= unlock.streak;
+  if (unlock.saves) return p.stats.saves >= unlock.saves;
+  if (unlock.scoredRun) return p.stats.bestScoredRun >= unlock.scoredRun;
+  if (unlock.titles) return p.titles >= unlock.titles;
+  return false;
+}
+
+/** Give the player every item whose milestone they have reached. @returns ids newly unlocked */
+export function grantMilestones(p) {
+  const fresh = [];
+  for (const it of ITEMS) if (!p.owned.includes(it.id) && milestoneMet(p, it.unlock)) { p.owned.push(it.id); fresh.push(it.id); }
+  return fresh;
+}
+
+/**
+ * Buy an item with coins. Nothing changes unless it succeeds.
+ * @returns {{ok:boolean, reason?:'unknown'|'owned'|'coins'}}
+ */
+export function buyItem(p, id) {
+  const it = itemById(id);
+  if (!it) return { ok: false, reason: 'unknown' };
+  if (p.owned.includes(id)) return { ok: false, reason: 'owned' };
+  if (p.coins < it.price) return { ok: false, reason: 'coins' };
+  p.coins -= it.price;
+  p.owned.push(id);
+  p.equipped[it.slot] = id;
+  return { ok: true };
+}
+
+/** Wear an owned item. @returns true if it was equipped */
+export function equipItem(p, id) {
+  const it = itemById(id);
+  if (!it || !p.owned.includes(id)) return false;
+  p.equipped[it.slot] = id;
+  return true;
+}
+
+/** The look of what the player is wearing in each slot. */
+export function equippedLooks(p) {
+  const out = {};
+  for (const slot of Object.keys(p.equipped)) out[slot] = (itemById(p.equipped[slot]) || {}).look || {};
+  return out;
+}

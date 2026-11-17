@@ -169,6 +169,11 @@ export function createPitch(scene, tier) {
   return {
     group,
     update(dt, t) { if (blades) blades.userData.uni.uTime.value = t; },
+    /** A wet pitch shines under the lights; snow dusts it pale. */
+    setSurface(kind) {
+      turf.roughness = kind === 'rain' ? 0.45 : 0.9;
+      turf.color.setScalar(kind === 'snow' ? 1.25 : 1);
+    },
   };
 }
 

@@ -8,11 +8,20 @@
 import { GOAL_HALF_WIDTH, GOAL_HEIGHT, SPOT_DISTANCE, clamp } from './ball.js';
 
 export const KEEPER = {
+  // the computer's keeper (what the player shoots against)
   speed: 6.2, // m/s the hands travel in a dive
   pushOff: 0.07, // s between deciding and moving
-  perfectFrom: 0, // a dive released 0..90 ms after the strike is a perfect dive
-  perfectTo: 0.09,
-  perfectBoost: 1.15, // speed and reach +15%
+  handR: 0.1, // reach of the gloves around the hands (m)
+  armR: 0.07,
+  // the player's keeper. v3.1: saving was too hard (a player reacting to the ball saved about
+  // 5% of shots, one reading the striker correctly about 15%), so the player's keeper is
+  // quicker off the line, reaches further, and can steer the hands once he sees the ball.
+  player: { speed: 7.2, pushOff: 0.05, handR: 0.14, armR: 0.09 },
+  perfectFrom: -0.04, // a dive started 40 ms before to 140 ms after the strike is a perfect dive
+  perfectTo: 0.14,
+  perfectBoost: 1.2, // speed +20%
+  adjustAfter: 0.2, // s after the strike: the keeper has seen the ball and can steer the hands
+  adjustReach: 0.5, // m the hands can be steered from where he dived
   ready: { x: 0, y: 1.05 }, // where the hands wait
   lineZ: SPOT_DISTANCE - 0.3, // the keeper stands just in front of the line
   catchSpeed: 18, // m/s: slower than this into the hands or chest is held, if the keeper barely moved
@@ -31,11 +40,11 @@ export const KEEPER = {
  * that comes near him, which is what stops chips and central drives.
  * @param crossing where the ball is heading {x, y}, once it has been struck (null before)
  */
-export function stayPut(crossing = null) {
+export function stayPut(crossing = null, body = KEEPER) {
   const moves = crossing
     ? [{ at: KEEPER.reflex, x: clamp(crossing.x, -KEEPER.reflexReach, KEEPER.reflexReach), y: clamp(crossing.y, 0.3, GOAL_HEIGHT - 0.1) }]
     : [];
-  return { moves, boost: 1, grade: 'stay' };
+  return { moves, boost: 1, grade: 'stay', body };
 }
 
 /**
@@ -49,19 +58,41 @@ export function playerDive(target, releaseT) {
     moves: [{ at: releaseT, x: clamp(target.x, -GOAL_HALF_WIDTH - 0.2, GOAL_HALF_WIDTH + 0.2), y: clamp(target.y, 0.15, GOAL_HEIGHT + 0.1) }],
     boost: perfect ? KEEPER.perfectBoost : 1,
     grade: perfect ? 'perfect' : releaseT < 0 ? 'early' : 'normal',
+    body: KEEPER.player,
   };
 }
+
+/**
+ * A keeper who has already gone can still adjust the hands once he sees the ball:
+ * after a human reaction time from the strike, the hands steer towards where the
+ * ball is heading, but only within `adjustReach` of where he dived. Going the wrong
+ * way stays wrong. Nothing here knows the ball before that reaction time.
+ * @param dive a dive with at least one move
+ * @param crossing where the ball reaches the keeper's line {x, y}
+ */
+export function withAdjust(dive, crossing) {
+  if (!dive.moves.length || !crossing) return dive;
+  const first = dive.moves[0];
+  const at = Math.max(KEEPER.adjustAfter, first.at + bodyOf(dive).pushOff);
+  const dx = clamp(crossing.x - first.x, -KEEPER.adjustReach, KEEPER.adjustReach);
+  const dy = clamp(crossing.y - first.y, -KEEPER.adjustReach * 0.7, KEEPER.adjustReach * 0.7);
+  return { ...dive, moves: [first, { at, x: first.x + dx, y: clamp(first.y + dy, 0.15, GOAL_HEIGHT + 0.1) }] };
+}
+
+/** The body a dive belongs to: the player's keeper, or the computer's. */
+const bodyOf = (dive) => dive.body || KEEPER;
 
 /** Where the hands are at time t, and how fast they are moving. */
 export function handsAt(dive, t) {
   let x = KEEPER.ready.x; let y = KEEPER.ready.y;
   let vx = 0; let vy = 0; let moved = 0;
-  const speed = KEEPER.speed * dive.boost;
+  const b = bodyOf(dive);
+  const speed = b.speed * dive.boost;
   for (let i = 0; i < dive.moves.length; i++) {
     const m = dive.moves[i];
-    const from = m.at + KEEPER.pushOff;
+    const from = m.at + b.pushOff;
     if (t <= from) break;
-    const until = i + 1 < dive.moves.length ? Math.min(t, dive.moves[i + 1].at + KEEPER.pushOff) : t;
+    const until = i + 1 < dive.moves.length ? Math.min(t, dive.moves[i + 1].at + b.pushOff) : t;
     const dx = m.x - x; const dy = m.y - y;
     const dist = Math.hypot(dx, dy);
     const go = Math.min(dist, speed * (until - from));
@@ -103,8 +134,8 @@ export function keeperBody(dive, t) {
   const still = h.moved < 0.35;
   const cap = (name, a, b, r, e, extra = {}) => ({ name, a: { x: a.x, y: a.y, z }, b: { x: b.x, y: b.y, z }, r, e, vx: h.vx, vy: h.vy, ...extra });
   const capsules = [
-    cap('hands', { x: hands.x - px * 0.16, y: Math.max(0.1, hands.y - py * 0.16) }, { x: hands.x + px * 0.16, y: Math.max(0.1, hands.y + py * 0.16) }, 0.1, 0.18, still ? { catch: KEEPER.catchSpeed } : {}),
-    cap('arms', chest, hands, 0.07, 0.3),
+    cap('hands', { x: hands.x - px * 0.16, y: Math.max(0.1, hands.y - py * 0.16) }, { x: hands.x + px * 0.16, y: Math.max(0.1, hands.y + py * 0.16) }, bodyOf(dive).handR, 0.18, still ? { catch: KEEPER.catchSpeed } : {}),
+    cap('arms', chest, hands, bodyOf(dive).armR, 0.3),
     cap('body', hip, chest, 0.2, 0.3, still ? { catch: KEEPER.catchSpeed * 0.8 } : {}),
     cap('head', head, head, 0.12, 0.4),
     cap('legs', feet, hip, 0.13, 0.35),

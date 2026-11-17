@@ -207,6 +207,7 @@ export function readSwipe(samples, project, seed) {
   const power = raw.power * timing.powerMul;
   const bulge = swipeBulge(samples);
   const aim = project(last.x, last.y); // rule 3: what you point at is what you aim at
+  if (!Number.isFinite(aim.x) || !Number.isFinite(aim.y) || !samples.every((p) => Number.isFinite(p.x + p.y + p.t))) return null;
   const type = classifyShot({ power, bulge, rest: restBeforeRelease(samples), target: aim });
   const sc = scatterOffset(power, timing.scatter, seed);
   const target = {

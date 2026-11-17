@@ -5,7 +5,9 @@ import { newShootout, record, winner, nextTeam, score, isSuddenDeath } from '../
 import { encodeChallenge2, quantise2, readAnyChallenge } from '../core/challenge.js';
 import { TEAMS, teamIndex, cpuStats } from '../core/teams.js';
 import { makeRng, hashSeed } from '../core/rng.js';
-import { loadProfile, saveProfile, recordKick, recordShootout, recordDaily, recordGlory, totalStars, styleOf, levelFromXp, dayKey } from '../core/profile.js';
+import { loadProfile, saveProfile, recordKick, recordShootout, recordDaily, recordGlory, totalStars, styleOf, levelFromXp, dayKey, buyItem, equipItem, grantMilestones, equippedLooks, milestoneMet } from '../core/profile.js';
+import { ITEMS, SLOTS, itemById } from '../core/modes.js';
+import { kitFor } from '../render/looks.js';
 import { dailyFixture, gloryLevel, starsFor, isUnlocked, hitsZone, ZONES, REGIONS, LEVEL_COUNT } from '../core/modes.js';
 import { legacyKickToShot, SHOT_TYPES } from '../core/shot.js';
 import { LEVELS, strikerTraits, keeperSkillFromStats, strikerSkillFromStats } from '../core/ai.js';
@@ -32,7 +34,7 @@ const STYLE_WORD = { topCorner: 'TOP BINS!', curve: 'WHAT A BEND!', panenka: 'CH
  * @param w {{canvas, match, crowd, rig, striker, keeper, gfx, tierName, storage, params}}
  */
 export function createApp(w) {
-  const { canvas, match, crowd, rig, striker, keeper, storage, params } = w;
+  const { canvas, match, crowd, rig, striker, keeper, storage, params, looks } = w;
   let rng = makeRng((Date.now() ^ 0x9e3779b9) >>> 0);
   const link = readAnyChallenge(location.hash);
   const challenge = link && !link.error ? link : null;
@@ -109,10 +111,21 @@ export function createApp(w) {
   }
 
   // ---------------------------------------------------------------- kits and stands
+  // the player's own looks from the locker; `preview` overrides one slot while browsing
+  let preview = {};
+  const myLooks = () => ({ ...equippedLooks(profile), ...preview });
+  function applyLooks() {
+    const l = myLooks();
+    if (looks) { looks.ball(l.ball || {}); looks.stadium(l.stadium || {}); }
+  }
   function dress(shooting, keeping) {
-    striker.setKit({ shirt: shooting.c1, shirt2: shooting.c2, shorts: shooting.c2, socks: shooting.c1, pattern: patternFor(shooting.code), skin: 0.72 + (teamIndex(shooting.code) % 4) * 0.09, hairTone: 0.25 + (teamIndex(shooting.code) % 3) * 0.2 });
+    const l = myLooks();
+    const mine = shooting.code === game.me.code;
+    const kit = mine ? kitFor(shooting, (l.kit || {}).style, patternFor(shooting.code)) : kitFor(shooting, 'home', patternFor(shooting.code));
+    striker.setKit({ ...kit, skin: 0.72 + (teamIndex(shooting.code) % 4) * 0.09, hairTone: 0.25 + (teamIndex(shooting.code) % 3) * 0.2 });
     const kc = KEEPER_KITS[teamIndex(keeping.code) % KEEPER_KITS.length];
-    keeper.setKit({ shirt: kc, shirt2: '#111827', shorts: '#111827', socks: kc, pattern: 'plain', gloves: '#f4f4f4', skin: 0.72 + ((teamIndex(keeping.code) + 2) % 4) * 0.09, hairTone: 0.2 + (teamIndex(keeping.code) % 3) * 0.2 });
+    const gloves = keeping.code === game.me.code ? ((l.gloves || {}).color || '#f4f4f4') : '#f4f4f4';
+    keeper.setKit({ shirt: kc, shirt2: '#111827', shorts: '#111827', socks: kc, pattern: 'plain', gloves, skin: 0.72 + ((teamIndex(keeping.code) + 2) % 4) * 0.09, hairTone: 0.2 + (teamIndex(keeping.code) % 3) * 0.2 });
   }
   function setTeams() {
     const order = game.playerTeam === 0 ? [game.me, game.them] : [game.them, game.me];
@@ -198,7 +211,7 @@ export function createApp(w) {
     sub(''); sfx.murmur();
     clips.start();
     game.kickNo++;
-    match.startKick({ rng, seed: hashSeed(`${game.kickNo}:${Math.floor(rng.next() * 1e9)}`), ...o }, settle);
+    match.startKick({ rng, seed: hashSeed(`${game.kickNo}:${Math.floor(rng.next() * 1e9)}`), celebration: (myLooks().celebration || {}).pose, ...o }, settle);
   }
 
   function settle(r) {
@@ -241,6 +254,7 @@ export function createApp(w) {
   }
 
   function finish(wn) {
+    game.unlockLine = '';
     game.phase = 'over';
     match.rest(); rig.set('orbit');
     const won = wn === game.playerTeam;
@@ -248,6 +262,8 @@ export function createApp(w) {
     if (!game.recorded) {
       game.recorded = true;
       recordShootout(profile, won);
+      const fresh = grantMilestones(profile).map((id) => itemById(id).name);
+      if (fresh.length) game.unlockLine = ` Unlocked in the Locker: ${fresh.join(', ')}.`;
       if (game.mode === 'daily') {
         const d = recordDaily(profile, game.day, won);
         dailyLine = d.firstToday ? ` Daily streak: ${d.streak} day${d.streak === 1 ? '' : 's'}${d.usedFreeze ? ' (a streak freeze saved it)' : ''}.` : '';
@@ -270,7 +286,7 @@ export function createApp(w) {
     $('panel-title').textContent = won ? `${game.me.flag} You win ${mine}–${theirs}!` : `${game.them.flag} Lost ${mine}–${theirs}`;
     $('panel-text').textContent = (game.mode === 'challenge'
       ? (won ? 'You beat their challenge. Send one back!' : 'They got you. Send them a rematch.')
-      : 'Send your 5 penalties to a friend. Can they save them?') + dailyLine;
+      : 'Send your 5 penalties to a friend. Can they save them?') + dailyLine + (game.unlockLine || '') + ` You have ${profile.coins} coins for the Locker.`;
     const share = $('btn-primary');
     share.hidden = false;
     if (game.myKicks.length >= 5) { share.textContent = 'Challenge a friend'; share.onclick = shareChallenge; } else {
@@ -279,7 +295,7 @@ export function createApp(w) {
       share.textContent = `Take ${left} more to challenge a friend`;
       share.onclick = () => { game.extra = true; game.winnerTeam = wn; game.phase = 'play'; showPanel(false); extraKick(); };
     }
-    $('btn-glory').hidden = true; $('btn-settings').hidden = true;
+    $('btn-glory').hidden = true; $('btn-settings').hidden = true; $('btn-locker').hidden = true;
     const again = $('btn-secondary');
     again.textContent = 'Back to the menu'; again.hidden = false;
     again.onclick = toMenu;
@@ -365,6 +381,7 @@ export function createApp(w) {
     const L = game.level;
     const stars = starsFor(L, game.results);
     const { newStars } = recordGlory(profile, L.id, stars);
+    grantMilestones(profile);
     saveProfile(storage, profile);
     $('panel').classList.remove('title');
     $('panel-title').textContent = stars ? '★'.repeat(stars) + '☆'.repeat(3 - stars) : 'Not this time';
@@ -375,7 +392,7 @@ export function createApp(w) {
     if (stars && L.n < LEVEL_COUNT) { next.textContent = `Next: level ${L.n + 1}`; next.onclick = () => startLevel(L.n + 1); } else { next.textContent = 'Try again'; next.onclick = () => startLevel(L.n); }
     retry.hidden = !stars; retry.textContent = 'Replay for more stars'; retry.onclick = () => startLevel(L.n);
     levels.hidden = false; levels.textContent = 'All levels'; levels.onclick = levelMap;
-    $('btn-glory').hidden = true; $('btn-settings').hidden = true;
+    $('btn-glory').hidden = true; $('btn-settings').hidden = true; $('btn-locker').hidden = true;
     showPanel(true); hint(''); sub('');
   }
   function levelMap() {
@@ -403,7 +420,7 @@ export function createApp(w) {
       grid.appendChild(row);
     }
     $('panel-extra').replaceChildren(grid);
-    $('btn-primary').hidden = true; $('btn-clip').hidden = true; $('btn-glory').hidden = true; $('btn-settings').hidden = true;
+    $('btn-primary').hidden = true; $('btn-clip').hidden = true; $('btn-glory').hidden = true; $('btn-settings').hidden = true; $('btn-locker').hidden = true;
     const back = $('btn-secondary');
     back.hidden = false; back.textContent = 'Back'; back.onclick = titleScreen;
     showPanel(true);
@@ -453,6 +470,9 @@ export function createApp(w) {
     $('panel').classList.toggle('title', !challenge || game.challengeDone);
     const primary = $('btn-primary'); const daily = $('btn-clip'); const nation = $('btn-secondary'); const glory = $('btn-glory'); const settings = $('btn-settings');
     primary.hidden = false; glory.hidden = true; settings.hidden = false; settings.onclick = settingsScreen;
+    $('btn-locker').hidden = true; $('panel').classList.remove('locker');
+    if (preview && Object.keys(preview).length) { preview = {}; applyLooks(); }
+    match.previewCelebration(null);
     if (link && link.error && !game.linkTold) {
       game.linkTold = true;
       $('panel').classList.remove('title');
@@ -477,6 +497,7 @@ export function createApp(w) {
       daily.textContent = done ? `Daily challenge done ✓ · streak ${profile.streak.count}` : `Daily challenge · streak ${profile.streak.count}`;
       daily.onclick = () => { unlockAudio(); start('daily'); };
       glory.hidden = false; glory.textContent = `Road to Glory · ${totalStars(profile)} ★`; glory.onclick = () => { unlockAudio(); levelMap(); };
+      const lk = $('btn-locker'); lk.hidden = false; lk.textContent = `Locker · ${profile.coins} coins`; lk.onclick = () => { unlockAudio(); locker('ball'); };
       nation.hidden = false; nation.textContent = `Playing for ${game.me.flag} ${game.me.name} · change`; nation.onclick = pickNation;
     }
     showPanel(true); $('hud').hidden = true;
@@ -521,8 +542,88 @@ export function createApp(w) {
     cr.textContent = 'Penalty Kings is an independent game, not affiliated with any football federation, league, club or tournament. 100% free: no ads, no purchases, no tracking, no account. Player models and animation rig: Quaternius (CC0). Grass and concrete textures: Poly Haven (CC0). 3D engine: three.js (MIT licence).';
     box.appendChild(cr);
     $('panel-extra').replaceChildren(box);
-    $('btn-primary').hidden = true; $('btn-clip').hidden = true; $('btn-glory').hidden = true; $('btn-settings').hidden = true;
+    $('btn-primary').hidden = true; $('btn-clip').hidden = true; $('btn-glory').hidden = true; $('btn-settings').hidden = true; $('btn-locker').hidden = true;
     const back = $('btn-secondary'); back.hidden = false; back.textContent = 'Back'; back.onclick = titleScreen;
+    showPanel(true);
+  }
+
+  // ---------------------------------------------------------------- locker: coins buy looks
+  const SLOT_NAMES = { ball: 'Ball', kit: 'Kit', gloves: 'Gloves', celebration: 'Celebration', stadium: 'Stadium' };
+  const SLOT_SHOT = { ball: 'lockerBall', kit: 'lockerPlayer', gloves: 'lockerKeeper', celebration: 'lockerCelebrate', stadium: 'orbit' };
+  const SLOT_NOTE = { ball: 'Your ball, in every match', kit: 'Your team when you shoot', gloves: 'Your keeper', celebration: 'When you score or save', stadium: 'Weather and lights' };
+  const milestoneText = (u) => (!u || u.free ? '' : u.level ? `or reach level ${u.level}` : u.stars ? `or earn ${u.stars} stars` : u.streak ? `or a ${u.streak}-day streak` : u.saves ? `or make ${u.saves} saves` : u.scoredRun ? `or score ${u.scoredRun} in a row` : u.titles ? 'or win a tournament' : '');
+  function swatch(it) {
+    const l = it.look;
+    if (it.slot === 'ball') return `radial-gradient(circle at 35% 35%, ${l.hex} 0 45%, ${l.pent} 46% 100%)`;
+    if (it.slot === 'kit') { const k = kitFor(game.me, l.style); return `linear-gradient(135deg, ${k.shirt} 0 55%, ${k.shirt2} 55% 70%, ${k.shorts} 70%)`; }
+    if (it.slot === 'gloves') return l.color;
+    if (it.slot === 'stadium') return { clear: 'linear-gradient(#0b1430, #1f6b2d)', rain: 'linear-gradient(#1a2333, #3d5266)', snow: 'linear-gradient(#2a3346, #e8eef7)', neon: 'linear-gradient(135deg, #ff3fd8, #2ee6ff)' }[l.weather];
+    return null;
+  }
+  function locker(slot = 'ball', previewId = null) {
+    game.phase = 'menu';
+    grantMilestones(profile);
+    saveProfile(storage, profile);
+    const prevItem = previewId ? itemById(previewId) : null;
+    preview = prevItem ? { [prevItem.slot]: prevItem.look } : {};
+    applyLooks();
+    if (slot === 'kit' || slot === 'gloves') dress(game.me, game.me);
+    match.previewCelebration(slot === 'celebration' ? (prevItem ? prevItem.look.pose : (equippedLooks(profile).celebration || {}).pose) : null);
+    rig.set(SLOT_SHOT[slot]);
+    const panel = $('panel');
+    panel.classList.remove('title');
+    panel.classList.add('locker');
+    $('panel-title').textContent = 'Locker';
+    $('panel-text').textContent = `${profile.coins} coins · Looks only: they never change how the game plays`;
+    const box = document.createElement('div');
+    const tabs = document.createElement('div');
+    tabs.className = 'tabs';
+    for (const s of SLOTS) {
+      const b = document.createElement('button');
+      b.textContent = SLOT_NAMES[s];
+      b.classList.toggle('on', s === slot);
+      b.onclick = () => locker(s);
+      tabs.appendChild(b);
+    }
+    box.appendChild(tabs);
+    const list = document.createElement('div');
+    list.className = 'item-list';
+    for (const it of ITEMS.filter((x) => x.slot === slot)) {
+      const owned = profile.owned.includes(it.id);
+      const wearing = profile.equipped[slot] === it.id;
+      const row = document.createElement('div');
+      row.className = 'item' + (previewId === it.id ? ' previewing' : '');
+      const sw = document.createElement('div');
+      sw.className = 'swatch';
+      const bg = swatch(it);
+      if (bg) sw.style.background = bg;
+      else { sw.textContent = { armsUp: '\u{1F64C}', slide: '\u{1F9CE}', shush: '\u{1F92B}', crown: '\u{1F451}' }[it.look.pose] || ''; sw.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(255,255,255,0.08)'; }
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.innerHTML = `${it.name}<small>${wearing ? 'Wearing' : owned ? 'Yours' : [`${it.price} coins`, milestoneText(it.unlock)].filter(Boolean).join(' ')}${it.look.trail ? ' · trail when struck' : ''}</small>`;
+      const btn = document.createElement('button');
+      if (wearing) { btn.textContent = 'Wearing'; btn.className = 'wearing'; btn.disabled = true; }
+      else if (owned) { btn.textContent = 'Wear'; btn.className = 'wear'; btn.onclick = (e) => { e.stopPropagation(); equipItem(profile, it.id); saveProfile(storage, profile); haptics.play('strike'); locker(slot); }; }
+      else if (profile.coins >= it.price) {
+        btn.textContent = `Buy · ${it.price}`;
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          if (buyItem(profile, it.id).ok) { saveProfile(storage, profile); haptics.play('goal'); sfx.roar(); banner('NEW LOOK!', true, 1100); }
+          locker(slot);
+        };
+      } else { btn.textContent = `${it.price - profile.coins} to go`; btn.className = 'short'; btn.onclick = (e) => { e.stopPropagation(); locker(slot, it.id); }; }
+      row.onclick = () => locker(slot, it.id); // try it on
+      row.append(sw, label, btn);
+      list.appendChild(row);
+    }
+    box.appendChild(list);
+    const note = document.createElement('p');
+    note.className = 'credits';
+    note.textContent = `${SLOT_NOTE[slot]}. Tap a row to try it on. Coins come from goals, saves, wins and the Daily Challenge.`;
+    box.appendChild(note);
+    $('panel-extra').replaceChildren(box);
+    $('btn-primary').hidden = true; $('btn-clip').hidden = true; $('btn-glory').hidden = true; $('btn-settings').hidden = true; $('btn-locker').hidden = true;
+    const back = $('btn-secondary'); back.hidden = false; back.textContent = 'Back'; back.onclick = () => { preview = {}; applyLooks(); match.previewCelebration(null); rig.set('orbit'); titleScreen(); };
     showPanel(true);
   }
 
@@ -600,10 +701,14 @@ export function createApp(w) {
     /** Call once the stadium is ready. */
     boot() {
       rig.set('orbit', false);
+      grantMilestones(profile); saveProfile(storage, profile);
+      applyLooks();
       if (params.get('stage')) { titleScreen(); stage(params.get('stage')).then(() => setTimeout(() => { window.__pk3StageReady = true; }, 700)); return; }
       if (!profile.onboarded && !challenge && !DEBUG) tutorial(0); else titleScreen();
     },
     tick() { clips.tick(); },
-    startLevel, start, tutorial, toMenu,
+    startLevel, start, tutorial, toMenu, locker,
+    /** Development: own and wear an item without the UI (device test runs). */
+    buyOrWear(id) { if (!buyItem(profile, id).ok) equipItem(profile, id); applyLooks(); },
   };
 }
