@@ -61,7 +61,8 @@ export function createCameraRig(camera) {
       if (shot === 'orbit') {
         orbitT += dt * 0.085;
         const r = 27;
-        tp.set(Math.sin(orbitT) * r, 5.5 + Math.sin(orbitT * 0.7) * 2.2, GOAL_Z + 7 + Math.cos(orbitT) * r);
+        // an ellipse that stays inside the bowl: it used to swing 11 m into the stand behind the goal
+        tp.set(Math.sin(orbitT) * r, 6.5 + Math.sin(orbitT * 0.7) * 1.5, GOAL_Z + 12 + Math.cos(orbitT) * 16);
         tl.set(0, 1.6, GOAL_Z + 3);
         target = { fov: 40, hfov: 50 };
       } else {

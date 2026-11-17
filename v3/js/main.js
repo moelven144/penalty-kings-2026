@@ -72,6 +72,7 @@ function startGame(assets) {
     onHint: (t) => { $('hint').textContent = t; },
     onStrike: (s) => { $('sub').textContent = `${SHOT_TYPES[s.type].label} · ${s.kmh} km/h · ${{ perfect: 'Perfect strike', clean: 'Clean strike', rushed: 'Rushed', scuffed: 'Scuffed' }[s.grade]}`; },
   });
+  window.__pk3.players = { striker, keeper };
   app = createApp({ canvas, camera, match, crowd, rig, striker, keeper, gfx, tierName, looks, storage: storage || { getItem: () => null, setItem: () => {} }, params });
 }
 
