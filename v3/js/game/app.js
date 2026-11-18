@@ -33,6 +33,9 @@ const STYLE_WORD = { topCorner: 'TOP BINS!', curve: 'WHAT A BEND!', panenka: 'CH
 /**
  * @param w {{canvas, match, crowd, rig, striker, keeper, gfx, tierName, storage, params}}
  */
+
+// Natural hair colours (multiplied with the hair texture): black, dark brown, brown, auburn, dark blond.
+const HAIR = ['#1a1310', '#2e1f16', '#4a3221', '#5a2a1a', '#8a6a3e'];
 export function createApp(w) {
   const { canvas, match, crowd, rig, striker, keeper, storage, params, looks } = w;
   let rng = makeRng((Date.now() ^ 0x9e3779b9) >>> 0);
@@ -122,10 +125,10 @@ export function createApp(w) {
     const l = myLooks();
     const mine = shooting.code === game.me.code;
     const kit = mine ? kitFor(shooting, (l.kit || {}).style, patternFor(shooting.code)) : kitFor(shooting, 'home', patternFor(shooting.code));
-    striker.setKit({ ...kit, skin: 0.72 + (teamIndex(shooting.code) % 4) * 0.09, hairTone: 0.25 + (teamIndex(shooting.code) % 3) * 0.2 });
+    striker.setKit({ ...kit, skin: 0.72 + (teamIndex(shooting.code) % 4) * 0.09, hair: HAIR[teamIndex(shooting.code) % HAIR.length] });
     const kc = KEEPER_KITS[teamIndex(keeping.code) % KEEPER_KITS.length];
     const gloves = keeping.code === game.me.code ? ((l.gloves || {}).color || '#f4f4f4') : '#f4f4f4';
-    keeper.setKit({ shirt: kc, shirt2: '#111827', shorts: '#111827', socks: kc, pattern: 'plain', gloves, skin: 0.72 + ((teamIndex(keeping.code) + 2) % 4) * 0.09, hairTone: 0.2 + (teamIndex(keeping.code) % 3) * 0.2 });
+    keeper.setKit({ shirt: kc, shirt2: '#111827', shorts: '#111827', socks: kc, pattern: 'plain', gloves, skin: 0.72 + ((teamIndex(keeping.code) + 2) % 4) * 0.09, hair: HAIR[(teamIndex(keeping.code) + 3) % HAIR.length] });
   }
   function setTeams() {
     const order = game.playerTeam === 0 ? [game.me, game.them] : [game.them, game.me];

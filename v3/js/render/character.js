@@ -70,7 +70,8 @@ function kitMaterial(src, uniforms) {
         flat in float vKit; varying vec3 vBind;
         uniform vec3 uShirt; uniform vec3 uShirt2; uniform vec3 uShorts; uniform vec3 uSocks; uniform vec3 uBoots; uniform vec3 uGloves; uniform vec3 uSkin; uniform float uPattern; uniform float uKeeper;`)
       .replace('#include <map_fragment>', `#include <map_fragment>
-        float shade = dot(diffuseColor.rgb, vec3(0.33)) * 1.6 + 0.25; // keep the body's painted shading under the cloth
+        float shade = dot(diffuseColor.rgb, vec3(0.33)) * 1.6 + 0.25; // the body's painted shading
+        float cloth = mix(0.95, shade, 0.45); // cloth keeps some of it (folds, occlusion) but not the painted muscles
         diffuseColor.rgb *= uSkin;
         float part = floor(vKit + 0.5);
         // The part per vertex follows the mesh's triangles, which gives saw-tooth hems. Where a kit edge is a
@@ -87,13 +88,15 @@ function kitMaterial(src, uniforms) {
           if (uPattern > 1.5) c = mix(uShirt, uShirt2, step(0.5, fract(vBind.y * 7.0)));           // hoops
           else if (uPattern > 0.5) c = mix(uShirt, uShirt2, 1.0 - step(0.075, abs(vBind.x * 0.9 + (vBind.y - 1.25)))); // sash
           // collar and cuffs in the second colour
-          c = mix(c, uShirt2, step(1.475, vBind.y) * step(abs(vBind.x), 0.12));
-          diffuseColor.rgb = c * shade;
-        } else if (part == 2.0) diffuseColor.rgb = uShorts * shade;
-        else if (part == 3.0) diffuseColor.rgb = mix(uSocks, uShirt2, step(0.38, vBind.y)) * shade;
+          c = mix(c, uShirt2, step(1.51 + ax * 0.6, vBind.y) * step(ax, 0.16)); // a thin collar along the neckline
+          diffuseColor.rgb = c * cloth;
+        } else if (part == 2.0) diffuseColor.rgb = uShorts * cloth;
+        else if (part == 3.0) diffuseColor.rgb = mix(uSocks, uShirt2, step(0.38, vBind.y)) * cloth;
         else if (part == 4.0) diffuseColor.rgb = uBoots * shade;
-        else if (part == 5.0) diffuseColor.rgb = uGloves * shade;`)
-      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nif (part > 0.5) roughnessFactor = 0.82;');
+        else if (part == 5.0) diffuseColor.rgb = uGloves * cloth;`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nif (part > 0.5) roughnessFactor = 0.82;')
+      // the body's sculpted relief (muscles) shows only faintly through cloth
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nif (part > 0.5 && part != 4.0) normal = normalize(mix(nonPerturbedNormal, normal, 0.3));');
   };
   return m;
 }
@@ -260,7 +263,7 @@ export function createPlayer(scene, assets, { keeper = false, hair = 0 } = {}) {
       if (kit.gloves) uniforms.uGloves.value.set(kit.gloves);
       const t = kit.skin == null ? 1 : kit.skin; // 1 = as painted, lower = darker
       uniforms.uSkin.value.setRGB(t, t * (0.92 + 0.08 * t), t * (0.86 + 0.14 * t));
-      hairMesh.material.color.setScalar(kit.hairTone == null ? 0.35 : kit.hairTone);
+      if (kit.hair) hairMesh.material.color.set(kit.hair); else hairMesh.material.color.setScalar(kit.hairTone == null ? 0.35 : kit.hairTone);
     },
     solve,
     set visible(vis) { group.visible = vis; },
