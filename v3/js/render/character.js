@@ -68,11 +68,20 @@ function kitMaterial(src, uniforms) {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
         flat in float vKit; varying vec3 vBind;
-        uniform vec3 uShirt; uniform vec3 uShirt2; uniform vec3 uShorts; uniform vec3 uSocks; uniform vec3 uBoots; uniform vec3 uGloves; uniform vec3 uSkin; uniform float uPattern;`)
+        uniform vec3 uShirt; uniform vec3 uShirt2; uniform vec3 uShorts; uniform vec3 uSocks; uniform vec3 uBoots; uniform vec3 uGloves; uniform vec3 uSkin; uniform float uPattern; uniform float uKeeper;`)
       .replace('#include <map_fragment>', `#include <map_fragment>
         float shade = dot(diffuseColor.rgb, vec3(0.33)) * 1.6 + 0.25; // keep the body's painted shading under the cloth
         diffuseColor.rgb *= uSkin;
         float part = floor(vKit + 0.5);
+        // The part per vertex follows the mesh's triangles, which gives saw-tooth hems. Where a kit edge is a
+        // straight line in the bind pose (T-pose, metres), decide it per pixel instead.
+        float ax = abs(vBind.x);
+        if (vBind.y < 0.95 && part != 4.0) part = vBind.y > 0.6 ? 2.0 : (vBind.y > 0.43 ? 0.0 : 3.0); // shorts, knee, socks
+        else if (ax < 0.25 && vBind.y > 0.95 && part <= 2.0) {
+          if (vBind.y < 1.3) part = vBind.y > 1.07 ? 1.0 : 2.0;                                        // waistband
+          else if (part <= 1.0) part = vBind.y > 1.535 + ax * 0.6 ? 0.0 : 1.0;                        // neckline
+        } else if (ax > 0.25 && vBind.y > 1.3 && (part <= 1.0 || part == 5.0))
+          part = uKeeper > 0.5 ? (ax < 0.69 ? 1.0 : 5.0) : (ax < 0.445 ? 1.0 : 0.0);                  // sleeves, gloves
         if (part == 1.0) {
           vec3 c = uShirt;
           if (uPattern > 1.5) c = mix(uShirt, uShirt2, step(0.5, fract(vBind.y * 7.0)));           // hoops
@@ -84,7 +93,7 @@ function kitMaterial(src, uniforms) {
         else if (part == 3.0) diffuseColor.rgb = mix(uSocks, uShirt2, step(0.38, vBind.y)) * shade;
         else if (part == 4.0) diffuseColor.rgb = uBoots * shade;
         else if (part == 5.0) diffuseColor.rgb = uGloves * shade;`)
-      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nif (vKit > 0.5) roughnessFactor = 0.82;');
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nif (part > 0.5) roughnessFactor = 0.82;');
   };
   return m;
 }
@@ -102,7 +111,7 @@ export function createPlayer(scene, assets, { keeper = false, hair = 0 } = {}) {
   const uniforms = {
     uShirt: { value: new THREE.Color('#c8102e') }, uShirt2: { value: new THREE.Color('#ffffff') },
     uShorts: { value: new THREE.Color('#ffffff') }, uSocks: { value: new THREE.Color('#c8102e') },
-    uBoots: { value: new THREE.Color('#0d0f13') }, uGloves: { value: new THREE.Color('#f2f2f2') },
+    uBoots: { value: new THREE.Color('#0d0f13') }, uGloves: { value: new THREE.Color('#f2f2f2') }, uKeeper: { value: keeper ? 1 : 0 },
     uSkin: { value: new THREE.Color(1, 1, 1) }, uPattern: { value: 0 },
   };
   const bones = {};

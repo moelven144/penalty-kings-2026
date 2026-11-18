@@ -161,28 +161,44 @@ export function createCrowd(scene, tier) {
 
   // flags on poles, scattered through both ends
   const flags = [];
-  const flagGeo = new THREE.PlaneGeometry(2.8, 1.7, 14, 6);
-  flagGeo.translate(1.4, 0, 0);
-  const poleMat = new THREE.MeshStandardMaterial({ color: '#c8ccd2', roughness: 0.5, metalness: 0.4 });
+  // Flags are lit cloth (tone mapped and fogged like everything else), about the size a
+  // supporter can hold up: 1.9 x 1.15 m on a 3 m pole. The wave travels from the pole out.
+  const FW = 1.9; const FH = 1.15;
+  const flagGeo = new THREE.PlaneGeometry(FW, FH, 14, 6);
+  flagGeo.translate(FW / 2, 0, 0);
+  const poleMat = new THREE.MeshStandardMaterial({ color: '#9aa0a8', roughness: 0.45, metalness: 0.6 });
+  const poleGeo = new THREE.CylinderGeometry(0.02, 0.025, 3.0, 6);
   for (let i = 0; i < tier.flags; i++) {
     let f = seats[Math.floor(Math.random() * seats.length)];
     for (let tries = 0; tries < 20 && f.y > 8.5; tries++) f = seats[Math.floor(Math.random() * seats.length)]; // flags stay in the lower tier
-    const fm = new THREE.ShaderMaterial({
-      side: THREE.DoubleSide,
-      uniforms: { uTime: uni.uTime, uA: { value: new THREE.Color('#ffffff') }, uB: { value: new THREE.Color('#c00000') }, uPhase: { value: Math.random() * 6.28 } },
-      vertexShader: `uniform float uTime; uniform float uPhase; varying vec2 vUv; varying float vShade;
-        void main(){ vUv = uv; vec3 p = position; float k = p.x / 2.8;
-          float w = sin(p.x * 2.4 - uTime * 5.0 + uPhase) * 0.18 * k;
-          p.z += w; p.y += w * 0.3 - k * k * 0.12; vShade = 0.8 + w * 1.5;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
-      fragmentShader: `uniform vec3 uA; uniform vec3 uB; varying vec2 vUv; varying float vShade;
-        void main(){ vec3 c = vUv.y > 0.5 ? uA : uB; gl_FragColor = vec4(c * vShade * 1.6, 1.0); }`,
-    });
+    const fm = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.85, metalness: 0 });
+    const fu = { uA: { value: new THREE.Color('#ffffff') }, uB: { value: new THREE.Color('#c00000') }, uPhase: { value: Math.random() * 6.28 } };
+    fm.userData.u = fu;
+    fm.customProgramCacheKey = () => 'pk-flag';
+    fm.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, fu, { uTime: uni.uTime });
+      const wave = `float k = position.x / ${FW.toFixed(2)};
+          float ph = position.x * 3.4 - uTime * 5.0 + uPhase;
+          float w = sin(ph) * 0.14 * k;
+          float dw = cos(ph) * 3.4 * 0.14 * k + sin(ph) * 0.14 / ${FW.toFixed(2)};`;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nuniform float uTime; uniform float uPhase; varying vec2 vFlagUv;')
+        .replace('#include <beginnormal_vertex>', `${wave}
+          vec3 objectNormal = normalize(vec3(-dw, 0.0, 1.0));
+          #ifdef USE_TANGENT
+          vec3 objectTangent = vec3(tangent.xyz);
+          #endif`)
+        .replace('#include <begin_vertex>', `vec3 transformed = vec3(position);
+          transformed.z += w; transformed.y += w * 0.25 - k * k * 0.08; vFlagUv = uv;`);
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uA; uniform vec3 uB; varying vec2 vFlagUv;')
+        .replace('#include <map_fragment>', `diffuseColor.rgb = vFlagUv.y > 0.5 ? uA : uB;`);
+    };
     const g = new THREE.Group();
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 3.6, 6), poleMat);
-    pole.position.y = 1.8;
+    const pole = new THREE.Mesh(poleGeo, poleMat);
+    pole.position.y = 1.5;
     const cloth = new THREE.Mesh(flagGeo, fm);
-    cloth.position.y = 2.7;
+    cloth.position.y = 3.0 - FH / 2;
     g.add(pole, cloth);
     g.position.set(f.x, f.y, f.z);
     g.rotation.y = Math.atan2(-f.nx, -f.nz) + (Math.random() - 0.5);
@@ -214,8 +230,8 @@ export function createCrowd(scene, tier) {
       }
       for (const { g, fm } of flags) {
         const t = g.userData.away ? away : home;
-        fm.uniforms.uA.value.set(t.c1);
-        fm.uniforms.uB.value.set(t.c2);
+        fm.userData.u.uA.value.set(t.c1);
+        fm.userData.u.uB.value.set(t.c2);
       }
     },
     /** Raise excitement (0..1) at the home end, the away end, or both. */
