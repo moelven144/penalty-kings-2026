@@ -8,7 +8,7 @@ import { RULES, canStart, readSwipe } from '../core/gesture.js';
 import { launchFor, SHOT_TYPES } from '../core/shot.js';
 import { newBall, stepBall, ballDone, classify, STEP, SPOT_DISTANCE, GOAL_HALF_WIDTH, GOAL_HEIGHT, BALL_RADIUS, OBSTACLE_PARTS } from '../core/ball.js';
 import { KEEPER, playerDive, stayPut, keeperBody, withAdjust } from '../core/save.js';
-import { strikerPlan, strikerReact, strikerShot, keeperDive, keeperCrossing, firstCommit } from '../core/ai.js';
+import { strikerPlan, strikerReact, strikerShot, keeperDive, keeperCrossing } from '../core/ai.js';
 import { strikerPose, idlePose, celebratePose, dejectedPose, keeperPose, SWING } from './choreo.js';
 import { createShootInput } from './input.js';
 import { haptics } from './haptics.js';
@@ -63,7 +63,8 @@ export function createMatch(w) {
     canStart: (p) => {
       if (!k) return false;
       if (state === 'aim') return canStart(p, ballOnScreen());
-      return k.keeperHuman && !k.dived && (state === 'runup' || state === 'flight');
+      // once the reflex has the hands on their way (keeper stayed put), a late swipe cannot pull them back
+      return k.keeperHuman && !k.dived && !k.reflexed && (state === 'runup' || state === 'flight');
     },
     onStart(p, timeStamp) {
       if (w.onTouch) w.onTouch();
@@ -131,10 +132,14 @@ export function createMatch(w) {
         if (p2 !== k.plan) { k.plan = p2; k.side = p2.side; k.switched = true; }
       }
       haptics.play(k.dive.grade === 'perfect' ? 'perfect' : 'runup');
-    } else {
-      const m = k.dive.moves[0];
-      const d = playerDive(target, m.at).moves[0];
-      m.x = d.x; m.y = d.y; // the dive follows the finger
+    } else if (!k.adjusted) {
+      // The dive follows the finger. Before the hands move, the target is simply changed; after that a
+      // change of direction is a new move from where the hands are, so they never jump.
+      const now = (k.touchStamp + b.t * 1000 - k.t0) / 1000 - k.strikeAt;
+      const moves = k.dive.moves; const first = moves[0]; const last = moves[moves.length - 1];
+      const d = playerDive(target, now).moves[0];
+      if (now < first.at + KEEPER.player.pushOff) { first.x = d.x; first.y = d.y; }
+      else if (now - last.at >= 0.016) moves.push({ at: now, x: d.x, y: d.y });
     }
     if (final) { k.locked = true; adjustDive(); }
   }
@@ -310,6 +315,7 @@ export function createMatch(w) {
 
     /** Road to Glory target zones: [{name, x, y, r}] in goal-plane metres. */
     showTargets(list) {
+      for (const m of targets.children) { m.geometry.dispose(); m.material.dispose(); }
       targets.clear();
       for (const z of list) {
         const m = new THREE.Mesh(new THREE.RingGeometry(z.r * 0.82, z.r, 40), basic(new THREE.Color(1.6, 1.3, 0.3), 0.85));

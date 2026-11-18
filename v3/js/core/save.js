@@ -72,11 +72,11 @@ export function playerDive(target, releaseT) {
  */
 export function withAdjust(dive, crossing) {
   if (!dive.moves.length || !crossing) return dive;
-  const first = dive.moves[0];
-  const at = Math.max(KEEPER.adjustAfter, first.at + bodyOf(dive).pushOff);
-  const dx = clamp(crossing.x - first.x, -KEEPER.adjustReach, KEEPER.adjustReach);
-  const dy = clamp(crossing.y - first.y, -KEEPER.adjustReach * 0.7, KEEPER.adjustReach * 0.7);
-  return { ...dive, moves: [first, { at, x: first.x + dx, y: clamp(first.y + dy, 0.15, GOAL_HEIGHT + 0.1) }] };
+  const last = dive.moves[dive.moves.length - 1]; // where the swipe finally pointed
+  const at = Math.max(KEEPER.adjustAfter, last.at + bodyOf(dive).pushOff);
+  const dx = clamp(crossing.x - last.x, -KEEPER.adjustReach, KEEPER.adjustReach);
+  const dy = clamp(crossing.y - last.y, -KEEPER.adjustReach * 0.7, KEEPER.adjustReach * 0.7);
+  return { ...dive, moves: [...dive.moves, { at, x: last.x + dx, y: clamp(last.y + dy, 0.15, GOAL_HEIGHT + 0.1) }] };
 }
 
 /** The body a dive belongs to: the player's keeper, or the computer's. */
