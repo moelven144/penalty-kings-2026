@@ -109,8 +109,9 @@ export class ClipRecorder {
 
   cancel() {
     if (this.rec && this.rec.state !== 'inactive') {
-      this.rec.onstop = () => this.rec?.stream.getTracks().forEach((t) => t.stop());
-      try { this.rec.stop(); } catch { /* already stopped */ }
+      const r = this.rec;
+      r.onstop = () => r.stream.getTracks().forEach((t) => t.stop());
+      try { r.stop(); } catch { /* already stopped */ }
     }
     this.rec = null;
   }

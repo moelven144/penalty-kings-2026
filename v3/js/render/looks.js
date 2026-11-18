@@ -96,7 +96,8 @@ export function createWeather(scene, tier) {
           y = wrap(y, 0, box.y);
           seedR[i * 3 + 1] = y;
           const x = seedR[i * 3] + y * 0.04; const z = seedR[i * 3 + 2];
-          rp.set([x, y, z, x + 0.02, y + 0.45, z], i * 6);
+          const o = i * 6;
+          rp[o] = x; rp[o + 1] = y; rp[o + 2] = z; rp[o + 3] = x + 0.02; rp[o + 4] = y + 0.45; rp[o + 5] = z;
         }
         rainGeo.attributes.position.needsUpdate = true;
       } else if (kind === 'snow') {
