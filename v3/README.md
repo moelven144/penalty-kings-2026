@@ -1,8 +1,8 @@
-# Penalty Kings v3 (rebuild in progress)
+# Penalty Kings v3
 
 The console-style rebuild. Plan: `REBUILD_PLAN.md`. Assets and licences: `ASSETS.md`.
 
-**Status: version 3.1 (build 8) in progress on branch `v3.1/feedback`. 3.0 (build 7) was submitted to App Review on 13 Nov 2026.**
+**Status: 3.1 (build 8) is approved by App Review (18 Nov 2026). 3.0 (build 7) was approved before it. Work towards 3.2 is on branch `v3.2/graphics`.**
 
 v3.1, from the owner's first play: saving was too hard, and coins had nothing to buy.
 - **Saving:** a player who reacted to the ball saved about 5% of shots and one who read the striker correctly about 15%.
@@ -13,16 +13,29 @@ v3.1, from the owner's first play: saving was too hard, and coins had nothing to
 - **Locker:** coins buy looks only (ball designs and trails, kits, gloves, celebrations, rain, snow and neon
   stadiums). Nothing changes play, so the Daily Challenge and challenge links stay fair. Milestones still unlock items free.
 
- The whole game is in: quick shootout, Daily Challenge, Road to Glory,
-challenge links, tutorial, settings, share clips. Built and archived for the App Store; the upload is
-waiting for an Apple account to be signed in to Xcode (see `../PUBLISH.md`). What was and was not
-verified, and where it falls short of the plan: `RULES_CHECK.md`.
+v3.2, in progress:
+- **Fairness:** every kick in the Daily Challenge and in a challenge link has its own random stream, so the day
+  (or the link) is the same match for everyone, whatever the player did with earlier kicks. A challenge link's
+  seed is now used, so both friends face the same computer keeper. A Daily that is quit and started again still
+  counts for the streak, but a win on the second try does not pay the Daily reward.
+- **Keeper:** a swipe that changes direction mid-dive turns the hands from where they are (they used to jump);
+  a late swipe cannot pull back a reflex save that is already on its way.
+- **Graphics:** kit edges (neckline, sleeves, waistband, shorts, socks) are drawn per pixel instead of along the
+  mesh's triangles, which removes the saw-tooth hems; supporters' flags are smaller, lit, tone-mapped cloth;
+  the shot read-out is a readable label instead of a monospace debug line.
+- **Fixes:** quitting during the walkout no longer leaves a tap listener that could start a hidden kick from the
+  menu; quitting stops the clip recorder; Road to Glory target rings are freed; rain no longer allocates every
+  frame; the touch-latency probe is only in Settings with `?debug`.
+
+The whole game is in: quick shootout, Daily Challenge, Road to Glory, challenge links, tutorial, settings,
+share clips, the Locker. Uploading: `../PUBLISH.md`. What was and was not verified, and where it falls short
+of the plan: `RULES_CHECK.md`.
 
 ## Run
 
 ```bash
 npm run serve:v3     # then open http://localhost:8000/v3/
-npm run test:v3      # 99 tests
+npm run test:v3      # 112 tests
 npm run test:v2      # the old game's 29 tests (legacy/v2)
 ```
 
