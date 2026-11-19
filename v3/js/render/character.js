@@ -71,7 +71,7 @@ function kitMaterial(src, uniforms) {
         uniform vec3 uShirt; uniform vec3 uShirt2; uniform vec3 uShorts; uniform vec3 uSocks; uniform vec3 uBoots; uniform vec3 uGloves; uniform vec3 uSkin; uniform float uPattern; uniform float uKeeper;`)
       .replace('#include <map_fragment>', `#include <map_fragment>
         float shade = dot(diffuseColor.rgb, vec3(0.33)) * 1.6 + 0.25; // the body's painted shading
-        float cloth = mix(0.95, shade, 0.45); // cloth keeps some of it (folds, occlusion) but not the painted muscles
+        float cloth = mix(0.95, shade, 0.35); // cloth keeps some of it (folds, occlusion) but not the painted muscles
         diffuseColor.rgb *= uSkin;
         float part = floor(vKit + 0.5);
         // The part per vertex follows the mesh's triangles, which gives saw-tooth hems. Where a kit edge is a
@@ -96,7 +96,7 @@ function kitMaterial(src, uniforms) {
         else if (part == 5.0) diffuseColor.rgb = uGloves * cloth;`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nif (part > 0.5) roughnessFactor = 0.82;')
       // the body's sculpted relief (muscles) shows only faintly through cloth
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nif (part > 0.5 && part != 4.0) normal = normalize(mix(nonPerturbedNormal, normal, 0.3));');
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nif (part > 0.5 && part != 4.0) normal = normalize(mix(nonPerturbedNormal, normal, 0.15));');
   };
   return m;
 }
@@ -119,6 +119,7 @@ export function createPlayer(scene, assets, { keeper = false, hair = 0 } = {}) {
   };
   const bones = {};
   let bodyMesh = null;
+  let browMesh = null;
   model.traverse((o) => {
     if (o.isBone) bones[o.name] = o;
     if (o.isSkinnedMesh) {
@@ -129,7 +130,8 @@ export function createPlayer(scene, assets, { keeper = false, hair = 0 } = {}) {
         o.geometry.setAttribute('aKit', kitAttribute(o, keeper));
         o.material = kitMaterial(o.material, uniforms);
       } else if (/Hair/.test(o.material.name)) {
-        o.material = o.material.clone(); // eyebrows
+        o.material = o.material.clone(); // eyebrows: coloured like the hair in setKit
+        browMesh = o;
       }
     }
   });
@@ -264,6 +266,7 @@ export function createPlayer(scene, assets, { keeper = false, hair = 0 } = {}) {
       const t = kit.skin == null ? 1 : kit.skin; // 1 = as painted, lower = darker
       uniforms.uSkin.value.setRGB(t, t * (0.92 + 0.08 * t), t * (0.86 + 0.14 * t));
       if (kit.hair) hairMesh.material.color.set(kit.hair); else hairMesh.material.color.setScalar(kit.hairTone == null ? 0.35 : kit.hairTone);
+      if (browMesh) browMesh.material.color.copy(hairMesh.material.color);
     },
     solve,
     set visible(vis) { group.visible = vis; },
