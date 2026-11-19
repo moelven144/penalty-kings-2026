@@ -2,10 +2,14 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "wc26",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8000", "--directory", "www"],
-      "port": 8000
+      "name": "penalty-kings-v3",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/dev-server.mjs",
+        "8000"
+      ],
+      "port": 8000,
+      "url": "http://localhost:8000"
     }
   ]
 }

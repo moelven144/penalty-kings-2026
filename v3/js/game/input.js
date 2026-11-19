@@ -21,7 +21,7 @@ export function createShootInput(canvas, handlers) {
   canvas.addEventListener('pointerdown', (e) => {
     if (active) return;
     const now = performance.now();
-    lat.handler.push(now - e.timeStamp);
+    lat.handler.push(now - e.timeStamp); if (lat.handler.length > 40) lat.handler.shift();
     lat.pending = e.timeStamp;
     if (probe && flash) { flash.style.opacity = '1'; setTimeout(() => { flash.style.opacity = '0'; }, 60); }
     const p = unit(e);
@@ -87,7 +87,7 @@ export function createShootInput(canvas, handlers) {
     },
     /** Call once per frame, after the game has rendered. */
     render(renderer, now) {
-      if (lat.pending != null) { lat.frame.push(now - lat.pending); lat.pending = null; }
+      if (lat.pending != null) { lat.frame.push(now - lat.pending); if (lat.frame.length > 40) lat.frame.shift(); lat.pending = null; }
       const w = window.innerWidth; const h = window.innerHeight;
       if (active) {
         const s = active.samples;

@@ -5,7 +5,7 @@ import { newShootout, record, winner, nextTeam, score, isSuddenDeath } from '../
 import { encodeChallenge2, quantise2, readAnyChallenge } from '../core/challenge.js';
 import { TEAMS, teamIndex, cpuStats } from '../core/teams.js';
 import { makeRng, hashSeed } from '../core/rng.js';
-import { loadProfile, saveProfile, recordKick, recordShootout, recordDaily, recordGlory, totalStars, styleOf, levelFromXp, dayKey, buyItem, equipItem, grantMilestones, equippedLooks, milestoneMet } from '../core/profile.js';
+import { loadProfile, saveProfile, recordKick, recordShootout, recordDaily, recordGlory, totalStars, styleOf, levelFromXp, dayKey, buyItem, equipItem, grantMilestones, equippedLooks } from '../core/profile.js';
 import { ITEMS, SLOTS, itemById } from '../core/modes.js';
 import { kitFor } from '../render/looks.js';
 import { dailyFixture, gloryLevel, starsFor, isUnlocked, hitsZone, ZONES, REGIONS, LEVEL_COUNT } from '../core/modes.js';
@@ -33,6 +33,9 @@ const STYLE_WORD = { topCorner: 'TOP BINS!', curve: 'WHAT A BEND!', panenka: 'CH
 /**
  * @param w {{canvas, match, crowd, rig, striker, keeper, gfx, tierName, storage, params}}
  */
+
+// Natural hair colours (multiplied with the hair texture): black, dark brown, brown, auburn, dark blond.
+const HAIR = ['#1a1310', '#2e1f16', '#4a3221', '#5a2a1a', '#8a6a3e'];
 export function createApp(w) {
   const { canvas, match, crowd, rig, striker, keeper, storage, params, looks } = w;
   let rng = makeRng((Date.now() ^ 0x9e3779b9) >>> 0);
@@ -122,10 +125,10 @@ export function createApp(w) {
     const l = myLooks();
     const mine = shooting.code === game.me.code;
     const kit = mine ? kitFor(shooting, (l.kit || {}).style, patternFor(shooting.code)) : kitFor(shooting, 'home', patternFor(shooting.code));
-    striker.setKit({ ...kit, skin: 0.72 + (teamIndex(shooting.code) % 4) * 0.09, hairTone: 0.25 + (teamIndex(shooting.code) % 3) * 0.2 });
+    striker.setKit({ ...kit, skin: 0.72 + (teamIndex(shooting.code) % 4) * 0.09, hair: HAIR[teamIndex(shooting.code) % HAIR.length] });
     const kc = KEEPER_KITS[teamIndex(keeping.code) % KEEPER_KITS.length];
     const gloves = keeping.code === game.me.code ? ((l.gloves || {}).color || '#f4f4f4') : '#f4f4f4';
-    keeper.setKit({ shirt: kc, shirt2: '#111827', shorts: '#111827', socks: kc, pattern: 'plain', gloves, skin: 0.72 + ((teamIndex(keeping.code) + 2) % 4) * 0.09, hairTone: 0.2 + (teamIndex(keeping.code) % 3) * 0.2 });
+    keeper.setKit({ shirt: kc, shirt2: '#111827', shorts: '#111827', socks: kc, pattern: 'plain', gloves, skin: 0.72 + ((teamIndex(keeping.code) + 2) % 4) * 0.09, hair: HAIR[(teamIndex(keeping.code) + 3) % HAIR.length] });
   }
   function setTeams() {
     const order = game.playerTeam === 0 ? [game.me, game.them] : [game.them, game.me];
@@ -146,14 +149,18 @@ export function createApp(w) {
   function start(mode) {
     game.mode = mode; game.phase = 'play'; game.level = null;
     game.shootout = newShootout(); game.recorded = false; game.extra = false; game.extraGoals = 0; game.code = null;
-    clips.reset(); game.myKicks = []; game.kickNo = 0;
+    cancelWalkout(); clips.reset(); game.myKicks = []; game.kickNo = 0; game.matchSeed = null;
     match.showTargets([]);
     if (mode === 'challenge') {
       game.them = TEAMS[challenge.nation] || TEAMS[0];
       game.playerTeam = 1; // the challenger kicked first
+      game.matchSeed = challenge.seed; // both friends face the same computer keeper
     } else if (mode === 'daily') {
       const fx = dailyFixture(dayKey()); // the same opponent and the same rolls for everyone today
-      game.day = fx.day; rng = makeRng(fx.seed);
+      game.day = fx.day; game.matchSeed = fx.seed;
+      // a Daily that is started counts: quitting and trying again would let a player learn today's kicks
+      if (profile.daily.lastDay !== fx.day && profile.daily.startedDay === fx.day) game.dailyRetry = true;
+      else { game.dailyRetry = false; profile.daily.startedDay = fx.day; saveProfile(storage, profile); }
       game.them = TEAMS[teamIndex(fx.opponent)];
       if (game.them.code === game.me.code) game.them = TEAMS[(teamIndex(fx.opponent) + 1) % TEAMS.length];
       game.playerTeam = 0;
@@ -175,10 +182,13 @@ export function createApp(w) {
     caption(`${game.me.name} v ${game.them.name} · ${stakes}`, 2600);
     hint('Tap to skip');
     let done = false;
-    const go = () => { if (done) return; done = true; canvas.removeEventListener('pointerdown', go); hint(''); then(); };
+    const off = () => { done = true; canvas.removeEventListener('pointerdown', go); cancelWalkout = () => {}; };
+    const go = () => { if (done) return; off(); if (game.phase !== 'play') return; hint(''); then(); };
     canvas.addEventListener('pointerdown', go);
+    cancelWalkout = off;
     later(2800, go);
   }
+  let cancelWalkout = () => {};
 
   function nextKick() {
     if (game.mode === 'glory') return gloryNextKick();
@@ -211,7 +221,11 @@ export function createApp(w) {
     sub(''); sfx.murmur();
     clips.start();
     game.kickNo++;
-    match.startKick({ rng, seed: hashSeed(`${game.kickNo}:${Math.floor(rng.next() * 1e9)}`), celebration: (myLooks().celebration || {}).pose, ...o }, settle);
+    // The Daily and challenge links give every kick its own stream, so the same day (or link) is the
+    // same match for everyone, whatever the player does with earlier kicks.
+    const fixed = (game.mode === 'daily' || game.mode === 'challenge') && game.matchSeed != null;
+    const kr = fixed ? makeRng(hashSeed(`${game.matchSeed}:${game.kickNo}`)) : rng;
+    match.startKick({ rng: kr, seed: hashSeed(`${game.kickNo}:${Math.floor(kr.next() * 1e9)}`), celebration: (myLooks().celebration || {}).pose, ...o }, settle);
   }
 
   function settle(r) {
@@ -265,8 +279,10 @@ export function createApp(w) {
       const fresh = grantMilestones(profile).map((id) => itemById(id).name);
       if (fresh.length) game.unlockLine = ` Unlocked in the Locker: ${fresh.join(', ')}.`;
       if (game.mode === 'daily') {
-        const d = recordDaily(profile, game.day, won);
+        // a Daily restarted after quitting keeps the streak going but does not pay the win reward
+        const d = recordDaily(profile, game.day, won && !game.dailyRetry);
         dailyLine = d.firstToday ? ` Daily streak: ${d.streak} day${d.streak === 1 ? '' : 's'}${d.usedFreeze ? ' (a streak freeze saved it)' : ''}.` : '';
+        if (d.firstToday && won && game.dailyRetry) dailyLine += ' This was a second try, so no Daily win reward today.';
       }
       saveProfile(storage, profile);
     }
@@ -458,7 +474,7 @@ export function createApp(w) {
 
   // ---------------------------------------------------------------- menus
   function toMenu() {
-    clearTimeout(timer);
+    clearTimeout(timer); cancelWalkout(); clips.cancel();
     game.phase = 'menu';
     match.rest(); match.showTargets([]);
     rig.set('orbit');
@@ -537,7 +553,7 @@ export function createApp(w) {
       location.reload();
     });
     row('How to play', 'Four short lessons', () => 'Replay', () => tutorial(0));
-    row('Touch latency probe', 'Flashes the screen on touch, for a slow-motion camera', () => match.input.probe, () => { match.input.probe = !match.input.probe; });
+    if (DEBUG) row('Touch latency probe', 'Flashes the screen on touch, for a slow-motion camera', () => match.input.probe, () => { match.input.probe = !match.input.probe; });
     const cr = document.createElement('p'); cr.className = 'credits';
     cr.textContent = 'Penalty Kings is an independent game, not affiliated with any football federation, league, club or tournament. 100% free: no ads, no purchases, no tracking, no account. Player models and animation rig: Quaternius (CC0). Grass and concrete textures: Poly Haven (CC0). 3D engine: three.js (MIT licence).';
     box.appendChild(cr);

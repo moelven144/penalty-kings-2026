@@ -65,3 +65,10 @@ test('prices fit what a player earns: the cheapest buy is within a few shootouts
   const p = blankProfile(); recordShootout(p, true);
   assert.ok(p.coins > 0);
 });
+
+test('v3.2: the day a Daily was started survives a save, so a quit-and-retry is noticed', () => {
+  const p = blankProfile();
+  p.daily.startedDay = '2026-11-19';
+  assert.equal(sanitise(JSON.parse(JSON.stringify(p))).daily.startedDay, '2026-11-19');
+  assert.equal(sanitise({ daily: { startedDay: 42 } }).daily.startedDay, null);
+});

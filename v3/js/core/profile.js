@@ -36,7 +36,7 @@ export function blankProfile() {
     coins: 0,
     stats: { kicksTaken: 0, goals: 0, kicksFaced: 0, saves: 0, shootouts: 0, wins: 0, panenkas: 0, topCorners: 0, bestScoredRun: 0, scoredRun: 0 },
     streak: { count: 0, best: 0, lastDay: null, freezes: 1 },
-    daily: { lastDay: null, won: false, played: 0, wins: 0 },
+    daily: { lastDay: null, startedDay: null, won: false, played: 0, wins: 0 },
     glory: {}, // level id -> stars (1..3)
     owned: ['ball-classic', 'kit-home', 'gloves-basic', 'celebration-fist', 'stadium-night'],
     equipped: { ball: 'ball-classic', kit: 'kit-home', gloves: 'gloves-basic', celebration: 'celebration-fist', stadium: 'stadium-night' },
@@ -66,6 +66,7 @@ export function sanitise(raw) {
   }
   if (isObj(raw.daily)) {
     p.daily.lastDay = typeof raw.daily.lastDay === 'string' ? raw.daily.lastDay : null;
+    p.daily.startedDay = typeof raw.daily.startedDay === 'string' ? raw.daily.startedDay : null;
     p.daily.won = !!raw.daily.won;
     p.daily.played = num(raw.daily.played);
     p.daily.wins = num(raw.daily.wins);

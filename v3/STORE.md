@@ -66,7 +66,15 @@ Plays offline. Made for one thumb.
 
 Penalty Kings is an independent game and is not affiliated with any football federation, league, club or tournament.
 
-## What's New (v3.1, for the next submission)
+## What's New (v3.2)
+
+• Better-looking players: a footballer's build, cleaner kits and natural hair
+• Fairer Daily Challenge: the same match for everyone, whatever happened on earlier kicks
+• Challenge links: you and your friend now face the same keeper
+• Smoother goalkeeping when you change direction mid-dive
+• Lots of small fixes
+
+## What's New (v3.1)
 
 • Saving is easier: your keeper reacts as soon as you swipe, and can adjust his hands once he sees the ball
 • New Locker: spend your coins on balls, kits, gloves, celebrations, and rain, snow or neon stadiums

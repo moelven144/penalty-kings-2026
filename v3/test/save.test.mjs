@@ -238,3 +238,14 @@ test('v3.1 balance: a human-like keeper saves a fair share, but reacting alone s
   assert.ok(reader > 0.35 && reader < 0.65, `reader ${(reader * 100).toFixed(0)}%`);
   assert.ok(reactor > 0.06 && reactor < 0.3, `reactor ${(reactor * 100).toFixed(0)}%`);
 });
+
+test('v3.2: a dive that followed the finger keeps every turn, and adjusts from where the swipe ended', () => {
+  const d = playerDive({ x: -1.5, y: 1.0 }, 0);
+  d.moves.push({ at: 0.1, x: 2.0, y: 1.0 }); // the finger changed its mind
+  const before = handsAt(d, 0.12); // no jump: the hands are still near where the first move took them
+  const straight = handsAt(playerDive({ x: -1.5, y: 1.0 }, 0), 0.12);
+  near(before.x, straight.x, 0.03, 'continues from the current position');
+  const a = withAdjust(d, { x: 2.4, y: 1.0 });
+  assert.equal(a.moves.length, 3);
+  near(a.moves[2].x, 2.4, 1e-9, 'adjusted from the last move');
+});
